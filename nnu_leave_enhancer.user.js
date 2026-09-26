@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         南师大请假审批系统体验优化助手 (NNU Leave Enhancer)
 // @namespace    https://github.com/nnu-enhancer/leave
-// @version      3.1.0
-// @description  专为南师大请假系统定制：表格默认填满整个视窗高度(自适应全高)、修复刷新收起Bug、全界面SVG专业矢量图标(去emoji)、单悬浮球不遮挡、处理意见置顶
+// @version      3.2.0
+// @description  专为南师大请假系统定制：扩大垂直视窗高度(75vh一屏容纳大量行数无需滑滚轮)、弹窗保持紧凑不拉高、全SVG专业图标、修复刷新收起Bug、处理意见置顶
 // @author       Antigravity
 // @match        https://ehallapp.nnu.edu.cn/qljfw/sys/lwNjnuStuLeaveManagement/*
 // @match        *://ehallapp.nnu.edu.cn/*
@@ -25,11 +25,11 @@
     // ================= 配置与持久化状态 =================
     const STORAGE_KEY_PAGESIZE = 'nnu_leave_page_size';
     const STORAGE_KEY_AUTO_OPINION = 'nnu_leave_auto_opinion';
-    const STORAGE_KEY_FULL_HEIGHT = 'nnu_leave_full_height';
+    const STORAGE_KEY_TALL_VIEW = 'nnu_leave_tall_view';
 
     let currentCustomPageSize = parseInt(localStorage.getItem(STORAGE_KEY_PAGESIZE) || '20', 10);
     let autoOpinionText = localStorage.getItem(STORAGE_KEY_AUTO_OPINION) || '同意';
-    let isFullHeight = localStorage.getItem(STORAGE_KEY_FULL_HEIGHT) !== 'false'; // 默认填满整个视窗高度
+    let isTallView = localStorage.getItem(STORAGE_KEY_TALL_VIEW) !== 'false'; // 默认开启 75vh 垂直视窗高度
 
     // 内存请求追踪日志 (最多保留 15 条)
     const requestLogs = [];
@@ -47,7 +47,7 @@
         updateLogPanelUI();
     }
 
-    // ================= 1. SVG 矢量图标库 (纯矢量，消除所有 emoji) =================
+    // ================= 1. SVG 矢量图标库 =================
     const SVG_ICONS = {
         rocket: `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M13.13 2.06c-.47-.47-1.24-.4-1.63.15L7.2 8.78c-.28.39-.33.91-.13 1.34l1.37 2.92-3.8 3.8a1 1 0 0 0 0 1.42l1.42 1.42a1 1 0 0 0 1.42 0l3.8-3.8 2.92 1.37c.43.2.95.15 1.34-.13l6.57-4.3c.55-.39.62-1.16.15-1.63l-7.74-7.73zM15.5 12a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>`,
         refresh: `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>`,
@@ -147,42 +147,47 @@
         };
     }
 
-    // ================= 3. 样式注入：默认填充整个视窗高度 & 弹窗紧凑 & 悬浮球 =================
+    // ================= 3. 样式注入：扩大垂直视窗高度(75vh一屏容纳大量行数) & 弹窗紧凑 =================
     const injectStyles = () => {
         const css = `
-            /* ===== 1. 主页面表格填充整个视窗高度 ===== */
-            /* 排除所有弹窗内部的表格，仅作用于主页面 */
-            .nnu-full-height:not(.bh-dialog) .bh-layout-main [data-action="grid"],
-            .nnu-full-height:not(.bh-dialog) .bh-layout-main .jqx-grid,
-            .nnu-full-height:not(.bh-dialog) .bh-layout-main .bh-paper,
-            .nnu-full-height:not(.bh-dialog) .bh-layout-main .bh-card,
-            .nnu-full-height:not(.bh-dialog) #app [data-action="grid"],
-            .nnu-full-height:not(.bh-dialog) #app .jqx-grid,
-            .nnu-full-height:not(.bh-dialog) #app .el-table {
-                height: calc(100vh - 190px) !important;
-                min-height: calc(100vh - 190px) !important;
-            }
-            .nnu-full-height:not(.bh-dialog) .bh-layout-main .jqx-grid-content,
-            .nnu-full-height:not(.bh-dialog) #app .el-table__body-wrapper {
-                height: calc(100vh - 270px) !important;
-                min-height: calc(100vh - 270px) !important;
+            /* ===== 1. 主页面表格扩大垂直视窗高度 (75vh 一屏容纳大量行数无需滑滚轮) ===== */
+            .nnu-tall-view [data-action="grid"],
+            .nnu-tall-view .jqx-grid,
+            .nnu-tall-view .jqx-grid-content,
+            .nnu-tall-view .emap-grid,
+            .nnu-tall-view .el-table,
+            .nnu-tall-view .el-table__body-wrapper,
+            .nnu-tall-view .bh-table {
+                height: 75vh !important;
+                min-height: 650px !important;
+                max-height: 85vh !important;
             }
 
-            /* ===== 2. 弹窗和提示框保持紧凑原生尺寸 ===== */
-            .bh-window, .bh-dialog, .el-dialog, .bh-paper-dialog {
+            /* ===== 2. 精确覆盖：弹窗和提示框内部绝对保持紧凑原生高度，不拉高 ===== */
+            .bh-window [data-action="grid"],
+            .bh-dialog [data-action="grid"],
+            .bh-pop [data-action="grid"],
+            .bh-dialog-con [data-action="grid"],
+            .el-dialog [data-action="grid"],
+            .bh-window .jqx-grid,
+            .bh-dialog .jqx-grid,
+            .bh-pop .jqx-grid,
+            .bh-dialog-con .jqx-grid,
+            .el-dialog .el-table,
+            .bh-window .jqx-grid-content,
+            .bh-dialog .jqx-grid-content,
+            .el-dialog .el-table__body-wrapper {
+                height: auto !important;
+                min-height: auto !important;
+                max-height: 280px !important;
+            }
+
+            /* 弹窗自身坚决不被撑大，保持紧凑原生尺寸 */
+            .bh-window, .bh-dialog, .bh-pop, .bh-dialog-con, .el-dialog, .bh-paper-dialog {
                 width: auto !important;
                 max-width: 90vw !important;
                 height: auto !important;
                 max-height: 90vh !important;
-            }
-            .bh-window [data-action="grid"],
-            .bh-dialog [data-action="grid"],
-            .bh-window .jqx-grid,
-            .bh-dialog .jqx-grid,
-            .el-dialog .el-table {
-                min-height: auto !important;
-                height: auto !important;
-                max-height: 280px !important;
             }
 
             /* ===== 3. 处理信息文本框置顶高亮 ===== */
@@ -306,38 +311,40 @@
         styleEl.innerHTML = css;
         (document.head || document.documentElement).appendChild(styleEl);
 
-        if (isFullHeight) {
-            document.documentElement.classList.add('nnu-full-height');
+        if (isTallView) {
+            document.documentElement.classList.add('nnu-tall-view');
         }
     };
 
-    // ================= 4. JS 动态微调主表高度，精准铺满视窗剩余空间 =================
-    function adjustMainTableToFillViewport() {
-        if (!isFullHeight) return;
+    // ================= 4. JS 动态应用 75vh 视窗高度并重绘 =================
+    function apply75vhHeight() {
+        if (!isTallView) return;
+        document.documentElement.classList.add('nnu-tall-view');
 
-        // 仅寻找主页面中的表格，严格排除弹窗内表格
-        const mainGrid = document.querySelector('body > div:not(.bh-dialog):not(.bh-window) [data-action="grid"], .bh-layout-main [data-action="grid"]');
-        if (mainGrid && mainGrid.offsetParent !== null) {
-            const rect = mainGrid.getBoundingClientRect();
-            // 计算可用高度：屏幕总高度 - 表格顶部距离 - 底部保留边距(留出分页栏约55px)
-            const targetHeight = Math.max(window.innerHeight - rect.top - 55, 520);
-            
-            mainGrid.style.setProperty('height', `${targetHeight}px`, 'important');
-            mainGrid.style.setProperty('min-height', `${targetHeight}px`, 'important');
+        const grids = document.querySelectorAll('[data-action="grid"], .jqx-grid');
+        grids.forEach(grid => {
+            // 排除弹窗内的表格
+            const inDialog = grid.closest && grid.closest('.bh-window, .bh-dialog, .bh-pop, .bh-dialog-con, .el-dialog');
+            if (!inDialog) {
+                const h = Math.max(window.innerHeight * 0.75, 650);
+                grid.style.setProperty('height', `${h}px`, 'important');
+                grid.style.setProperty('min-height', `${h}px`, 'important');
 
-            // 联动内部 jqx-grid-content
-            const content = mainGrid.querySelector('.jqx-grid-content');
-            if (content) {
-                content.style.setProperty('height', `${targetHeight - 75}px`, 'important');
-            }
-
-            // 如果存在 jQuery 实例，调用一次 resize
-            try {
-                if (win.jQuery && win.jQuery(mainGrid).data('jqxGrid')) {
-                    win.jQuery(mainGrid).jqxGrid({ height: targetHeight });
+                const content = grid.querySelector('.jqx-grid-content');
+                if (content) {
+                    content.style.setProperty('height', `${h - 60}px`, 'important');
                 }
-            } catch (e) {}
-        }
+
+                try {
+                    if (win.jQuery && win.jQuery(grid).data('jqxGrid')) {
+                        win.jQuery(grid).jqxGrid({ height: h });
+                    }
+                } catch (e) {}
+            }
+        });
+
+        // 派发 resize，让表格计算并填充可见行
+        win.dispatchEvent(new Event('resize'));
     }
 
     // ================= 5. 处理信息文本框自动“置顶最上方” =================
@@ -403,7 +410,7 @@
 
         if (switched) {
             showToast(`已联动底部分页条切换为 ${currentCustomPageSize} 行`);
-            setTimeout(adjustMainTableToFillViewport, 600);
+            setTimeout(apply75vhHeight, 600);
             return;
         }
 
@@ -416,7 +423,7 @@
         if (queryBtn) {
             queryBtn.click();
             showToast(`已触发【${queryBtn.innerText.trim()}】刷新`);
-            setTimeout(adjustMainTableToFillViewport, 600);
+            setTimeout(apply75vhHeight, 600);
             return;
         }
 
@@ -435,7 +442,7 @@
         setTimeout(() => toast.classList.remove('show'), duration);
     };
 
-    // ================= 6. 渲染悬浮球 & 修复点击刷新收起Bug =================
+    // ================= 6. 渲染悬浮球 UI =================
     const updateLogPanelUI = () => {
         const container = document.getElementById('nnu-log-container');
         if (!container) return;
@@ -466,9 +473,9 @@
             tableInfo += `  [${i+1}] tag:<${t.tagName.toLowerCase()}> class:"${t.className}" 尺寸:${t.clientWidth}x${t.clientHeight}\n`;
         });
 
-        const diag = `====== NNU Leave Diagnostic Log (V3.1.0) ======\n`
+        const diag = `====== NNU Leave Diagnostic Log (V3.2.0) ======\n`
                    + `URL: ${location.href}\n`
-                   + `当前设置行数: ${currentCustomPageSize} | 填满视窗高度: ${isFullHeight}\n`
+                   + `当前设置行数: ${currentCustomPageSize} | 扩大垂直视窗75vh: ${isTallView}\n`
                    + `Window Inner: ${window.innerWidth}x${window.innerHeight}\n`
                    + `Table DOM Info:\n${tableInfo}\n`
                    + `Recent Requests:\n${JSON.stringify(requestLogs, null, 2)}\n`
@@ -511,9 +518,9 @@
                 <button id="nnu-btn-apply" class="nnu-btn nnu-btn-success">${SVG_ICONS.refresh} 刷新</button>
             </div>
             <div style="display:flex; align-items:center; justify-content:space-between; font-size:12px;">
-                <label style="cursor:pointer; display:flex; align-items:center; gap:5px;" title="默认填充整个浏览器视窗高度，告别滚轮">
-                    <input type="checkbox" id="nnu-check-fullheight" ${isFullHeight ? 'checked' : ''}>
-                    <span>填满整个视窗高度 (默认开启)</span>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:5px;" title="扩大垂直视窗高度为 75vh，一屏容纳大量行数，无需内部滑滚轮">
+                    <input type="checkbox" id="nnu-check-tallview" ${isTallView ? 'checked' : ''}>
+                    <span>扩大垂直高度 (75vh大视窗无需滚轮)</span>
                 </label>
             </div>
             <!-- 日志监控 -->
@@ -534,7 +541,6 @@
         `;
         document.body.appendChild(panel);
 
-        // ★ 核心修复 Bug 2：面板内部点击严禁冒泡到 document，彻底杜绝点击刷新收起面板！
         panel.addEventListener('click', (e) => {
             e.stopPropagation();
         });
@@ -559,14 +565,12 @@
             togglePanel(false);
         });
 
-        // 仅在点击面板和悬浮球外部的真正页面空白处时才收起
         document.addEventListener('click', (e) => {
             if (isPanelOpen && !panel.contains(e.target) && e.target !== ball) {
                 togglePanel(false);
             }
         });
 
-        // 绑定行数下拉框
         const select = document.getElementById('nnu-select-pagesize');
         select.value = String(currentCustomPageSize);
         select.addEventListener('change', (e) => {
@@ -575,23 +579,21 @@
             showToast(`已选 ${currentCustomPageSize} 行，点击【刷新】`);
         });
 
-        // 点击刷新按钮：执行刷新，且保持面板展开
         document.getElementById('nnu-btn-apply').addEventListener('click', (e) => {
             e.stopPropagation();
             triggerReloadData();
         });
 
-        // 填满视窗开关
-        const fullHeightCheck = document.getElementById('nnu-check-fullheight');
-        fullHeightCheck.addEventListener('change', (e) => {
-            isFullHeight = e.target.checked;
-            localStorage.setItem(STORAGE_KEY_FULL_HEIGHT, isFullHeight);
-            if (isFullHeight) {
-                document.documentElement.classList.add('nnu-full-height');
-                adjustMainTableToFillViewport();
-                showToast('已开启填充视窗全高！');
+        const tallCheck = document.getElementById('nnu-check-tallview');
+        tallCheck.addEventListener('change', (e) => {
+            isTallView = e.target.checked;
+            localStorage.setItem(STORAGE_KEY_TALL_VIEW, isTallView);
+            if (isTallView) {
+                document.documentElement.classList.add('nnu-tall-view');
+                apply75vhHeight();
+                showToast('已扩大垂直高度为 75vh！');
             } else {
-                document.documentElement.classList.remove('nnu-full-height');
+                document.documentElement.classList.remove('nnu-tall-view');
                 showToast('已恢复原生高度');
             }
         });
@@ -658,18 +660,16 @@
 
         const onReady = () => {
             renderFloatingBall();
-            adjustMainTableToFillViewport();
+            apply75vhHeight();
             document.addEventListener('keydown', handleQuickReviewKeyboard);
 
-            // 监听窗口尺寸变化，动态重算主表视窗全高
             win.addEventListener('resize', () => {
-                adjustMainTableToFillViewport();
+                apply75vhHeight();
             });
 
-            // 监听 DOM 树变化：置顶处理意见框 + 主表高度微调
             const observer = new MutationObserver(() => {
                 liftReviewFormToTop();
-                adjustMainTableToFillViewport();
+                apply75vhHeight();
             });
             observer.observe(document.body || document.documentElement, {
                 childList: true,
@@ -684,8 +684,8 @@
         }
 
         win.addEventListener('load', () => {
-            setTimeout(adjustMainTableToFillViewport, 500);
-            setTimeout(adjustMainTableToFillViewport, 1200);
+            setTimeout(apply75vhHeight, 500);
+            setTimeout(apply75vhHeight, 1200);
         });
     };
 
