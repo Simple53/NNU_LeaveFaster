@@ -1,64 +1,78 @@
-# NNU LeaveFaster (南师大请假审批系统体验优化助手)
+<p align="center"><img src="assets/icon.svg" alt="NNU LeaveFaster icon" width="88" height="88"></p>
 
-针对南京师范大学及金智教育（Wisedu EMAP / 今日校园 / ehallapp）学生请假审批管理系统（`lwNjnuStuLeaveManagement`）量身定制的前端体验增强油猴脚本。作为用户无需修改后端代码，即可解决**默认10行翻页繁琐**、**表格高度局促需上下滚动**、**审核弹窗输入框被埋在底部**以及**操作卡顿**等痛点。
+# NNU LeaveFaster
 
-GitHub 仓库: [https://github.com/Simple53/NNU_LeaveFaster](https://github.com/Simple53/NNU_LeaveFaster)
+面向南京师范大学请假审批系统（Wisedu EMAP / `lwNjnuStuLeaveManagement`）的轻量油猴脚本。优化主表分页和审批详情，让常用操作更清晰。
 
----
+[下载 v1.0.0](https://github.com/Simple53/NNU_LeaveFaster/releases/tag/v1.0.0) · [脚本源码](nnu_leave_enhancer.user.js) · [反馈问题](https://github.com/Simple53/NNU_LeaveFaster/issues)
 
-## 核心特性
+## 功能
 
-- **表格默认铺满视窗高度**：自动计算浏览器剩余物理空间，主表格纵向直接自适应填满屏幕，一屏完整容纳 20~50 行数据，彻底告别在内部小框里翻滚轮。
-- **突破单页 10 行限制**：支持在悬浮面板中自由设定每页显示 **10 / 20 / 50 / 100 行**，网络层自动重写 `queryUserTasks.do` 查询参数。
-- **处理信息文本框自动置顶**：点开学生审批弹窗瞬间，自动将底部的“审核结果通过”单选框与“审核意见”输入框提取并**置顶移至弹窗最上方**并高亮显示，免去每次向下滑动寻找输入框的繁琐动作。
-- **极速快捷键审批**：
-  - `Alt + A`：自动勾选“同意/通过”，并自动填入审核意见（默认“同意”）；
-  - `Alt + Enter`：一键秒速确认并提交弹窗；
-  - 双手无需离开键盘，1 秒内完成单人审批流。
-- **精致悬浮球设计**：采用右下角圆形矢量小球，平时不遮挡页面任何按钮和分页组件；点击平滑展开控制面板，面板内操作不会意外收起。
-- **全面采用 SVG 矢量图标**：去除所有 emoji 字符，升级为高分辨率高清内联 SVG 图标，干练、专业、轻快。
-- **精准隔离弹窗尺寸**：只扩大主页面待办大表格的高度，弹窗内部关联表格和系统原生提示框（alert/confirm）保持紧凑，不拉伸变形。
-- **内置接口耗时监控与一键诊断**：实时监测后台请求延迟，提供一键复制排查日志功能。
+- **主表分页**：支持 10、20、50、100 行。选择行数后点击刷新，同步 jqxGrid / jqxDataTable 的分页状态并回到第一页；同一行数也可以再次刷新。
+- **主表加高**：可切换 75vh 大视窗，实际显示数量仍取决于屏幕尺寸、行高和接口返回数据。
+- **简洁界面**：15px 主字号，行数选项仅显示数字，诊断与快捷键默认折叠。
+- **审批详情**：保留原生宽度，内容高度自适应；处理意见区域置顶并高亮。
+- **流转信息**：取消插件对高度和文字行数的限制，按已有内容完整展示。
+- **原生流程图**：流程图页面在脚本入口直接退出，不注入样式、不绑定事件、不拦截请求，保留网页自身的尺寸与点击交互。
+- **减少等待**：关闭页面动画与过渡，并在请求结束后尝试解除加载遮罩。实际加载耗时由网络和服务器决定。
+- **诊断日志**：记录最近 15 项请求或分页操作。XHR 主表请求额外记录分页参数、响应数组长度与总数等元数据。
 
----
+## 安装与更新
 
-## 安装使用指南
+1. 在浏览器中安装 Tampermonkey 或 Violentmonkey。
+2. 从 [Release](https://github.com/Simple53/NNU_LeaveFaster/releases/tag/v1.0.0) 下载 `nnu_leave_enhancer.user.js`，或打开仓库中的脚本并复制全部内容。
+3. 在脚本管理器中新建脚本、粘贴并保存。更新时替换原脚本，避免同时启用多个版本。
+4. 通过学校门户正常登录请假审批系统，重新加载网页。
+5. 点击右下角 **NNU LeaveFaster**，选择每页行数并点击“刷新”。
 
-### 第一步：安装脚本管理器（任选其一）
-请确保浏览器已安装 Tampermonkey 或 Violentmonkey 扩展：
-- **Edge 浏览器**：[Tampermonkey 扩展商店链接](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpbppiibahmmnapnahndlhxhpm)
-- **Chrome 浏览器**：[Tampermonkey Chrome Web Store](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+v1.0.0 为本仓库首个正式 Release，整合了开发阶段 v1.0.6–v1.0.8 的修改。已安装这些开发版本的用户请手动替换脚本；重新加载网页才能清除旧脚本注入的样式。
 
-### 第二步：安装脚本
-1. 点击浏览器右上角的 **Tampermonkey** 图标 -> **“添加新脚本”**；
-2. 复制仓库中的 [`nnu_leave_enhancer.user.js`](./nnu_leave_enhancer.user.js) 全部代码并粘贴；
-3. 按 `Ctrl + S` 保存。
+## 使用
 
-### 第三步：访问系统
-访问南师大请假审批系统页面：
-- [进入南师大请假审批系统](https://ehallapp.nnu.edu.cn/qljfw/sys/lwNjnuStuLeaveManagement/index.do?gid_=Yko5cDZXQThPczJXWHdaSDhyYU9GVzhvdWloUkF4b0ErdUViZ3BoUnpFQzd3am5KTUE5NWlBR3RkTU1Pek1CV2xCaW1XYXZ6V25ES0t4VmVpS1lMcGc9PQ&amp_sec_version_=1&EMAP_LANG=zh&THEME=#/review)
-- 页面右下角将出现科技感火箭悬浮小球，主表格将默认自动撑满屏幕高度！
+| 操作 | 效果 |
+| --- | --- |
+| 每页行数 → 刷新 | 设置主表分页并回到第一页 |
+| 加高主表 | 切换主表大视窗 |
+| 诊断与快捷键 → 复制诊断日志 | 复制排查信息 |
+| `Alt + A` | 在审核页面勾选“同意”并填入意见，默认“同意” |
+| `Alt + Enter` | 点击当前可见的确定、提交、通过或保存按钮，会执行实际提交 |
 
----
+每页行数和大视窗偏好保存在网页本地存储中。
 
-## 快捷键一览
+## 分页排查
 
-| 快捷键 | 功能说明 |
-| :--- | :--- |
-| **`Alt + A`** | 打开审批弹窗后，自动勾选“同意/通过”单选框并自动填入审核意见（默认“同意”） |
-| **`Alt + Enter`** | 秒速点击弹窗底部的“确定/提交”按钮 |
+如果选择 50 行后仍只显示 10 行，等待请求完成，再复制诊断日志。日志可用于对比：
 
----
+- 组件内部的每页行数与当前页码；
+- `queryUserTasks.do` 发出的分页参数；
+- 响应中数组的长度与总数。
 
-## 项目结构
+HTTP 200 只表示请求完成，不代表目标行数已经生效。末页或筛选结果不足 50 条时，显示较少记录属于正常情况。服务器上限、接口结构变化或学校更新组件也可能影响行为。
+
+日志不复制学生记录明细，但包含当前页面 URL；对外分享前请移除 URL 中的会话参数。
+
+## 开发与验证
+
+无需构建或安装 npm 依赖。使用支持 FormData 的 Node.js（已在 Node.js 22 验证）：
+
+```sh
+node --check nnu_leave_enhancer.user.js
+node test-pagination.cjs
+```
+
+回归检查覆盖分页参数改写、表单与编码 JSON、主表组件分页、重复刷新、详情表格排除、诊断摘要及流程图页面提前退出。组件测试使用模拟对象，不能代替学校真实网页验证。
+
+手动检查：切换 10 / 50 行并翻页；重复刷新；打开详情检查流转信息；点击流程图验证原生交互。
+
+## 文件
 
 ```text
-NNU_LeaveFaster/
-├── README.md                  # 项目使用与技术说明文档
-├── nnu_leave_enhancer.user.js  # 油猴增强脚本源码 (V3.1.0)
-└── .gitignore                 # Git 忽略文件
+assets/icon.svg             项目矢量图标
+nnu_leave_enhancer.user.js   可直接安装的油猴脚本
+test-pagination.cjs         无第三方依赖的回归检查
+RELEASE_NOTES.md            v1.0.0 发布说明
 ```
 
 ## License
 
-MIT License
+MIT License（沿用仓库现有声明）。
