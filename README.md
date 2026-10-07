@@ -29,6 +29,7 @@ A browser userscript for Nanjing Normal University's leave approval system, buil
 | Feature | Description |
 |---|---|
 | 📋 **Page Size Control** | Choose 10, 20, 50, or 100 rows. Refresh synchronizes the jqxGrid / jqxDataTable page size and returns to the first page. Refreshing the same size is supported. |
+| ✅ **Batch Multi-Select & Approve** | Remove the native 10-item batch approval limit. Freely check multiple items or click Select All to approve all selected pending tasks in one batch. |
 | ↕️ **Taller Main Table** | Toggle a 75vh table viewport. Visible rows still depend on screen size, row height, and returned data. |
 | ✨ **Minimal Interface** | 15px primary text, numeric page-size options, and collapsed diagnostics and shortcut help. |
 | 📝 **Review Details** | Keep the original dialog width, adapt content height, and move the review opinion area to the top with a highlight. |
@@ -90,6 +91,7 @@ Logs include the current page URL. Remove session parameters before sharing them
 | 功能 | 说明 |
 |---|---|
 | 📋 **主表行数切换** | 支持 10、20、50、100 行。刷新时同步 jqxGrid / jqxDataTable 分页状态并返回第一页，相同行数也可再次刷新。 |
+| ✅ **突破批量上限与全选** | 彻底解除系统原生 10 条批量审批上限，支持复选框自由多选与表头一键“全选”，支持批量同意当前页所有待办。 |
 | ↕️ **主表大视窗** | 可切换 75vh 视窗；实际可见行数取决于屏幕尺寸、行高与接口返回数据。 |
 | ✨ **简洁操作面板** | 15px 主字号，行数选项仅显示数字，诊断与快捷键默认折叠。 |
 | 📝 **审批详情优化** | 保留原生宽度，内容高度自适应；处理意见区域置顶并高亮。 |

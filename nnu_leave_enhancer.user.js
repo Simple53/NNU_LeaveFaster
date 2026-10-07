@@ -2,7 +2,7 @@
 // @name         NNU LeaveFaster
 // @namespace    https://github.com/Simple53/NNU_LeaveFaster
 // @version      1.0.0
-// @description  专为南师大请假系统定制：同步jqx组件分页并刷新主表、审核模块高度自适应、关闭动画与渐变、流转信息完整显示
+// @description  专为南师大请假系统定制：突破10条批量同意限制支持全选、同步jqx组件分页并刷新主表、审核模块高度自适应、关闭动画与渐变、流转信息完整显示
 // @author       Antigravity
 // @homepageURL  https://github.com/Simple53/NNU_LeaveFaster
 // @supportURL   https://github.com/Simple53/NNU_LeaveFaster/issues
@@ -415,6 +415,163 @@
         showToast('未找到可操作的主表组件，请复制诊断日志', 3500);
     }
 
+    // ================= 4.5 突破 10 条批量限制与多选增强 =================
+    function getActiveGrid() {
+        const tables = getMainTables();
+        return tables.length ? tables[0] : document.querySelector('#emapdatatable, [data-action="grid"], .jqx-grid');
+    }
+
+    function getSelectedRecords() {
+        const grid = getActiveGrid();
+        if (!grid) return [];
+        const $ = win.jQuery;
+        if ($ && $(grid).length) {
+            try {
+                if (typeof $(grid).emapdatatable === 'function') {
+                    const checked = $(grid).emapdatatable('getChecked');
+                    if (Array.isArray(checked) && checked.length) return checked;
+                }
+            } catch (e) {}
+            try {
+                if ($(grid).data('jqxGrid')) {
+                    const indexes = $(grid).jqxGrid('getselectedrowindexes') || [];
+                    const rows = [];
+                    for (const idx of indexes) {
+                        const rowData = $(grid).jqxGrid('getrowdata', idx);
+                        if (rowData) rows.push(rowData);
+                    }
+                    if (rows.length) return rows;
+                }
+            } catch (e) {}
+        }
+        const checkedBoxes = Array.from(document.querySelectorAll('.jqx-grid-content .jqx-checkbox[aria-checked="true"], .jqx-grid-content input[type="checkbox"]:checked, #emapdatatable tbody input[type="checkbox"]:checked'));
+        return checkedBoxes.map((cb, i) => ({ index: i, element: cb }));
+    }
+
+    function toggleSelectAll(selectAll = true) {
+        lastInteractTime = Date.now();
+        const grid = getActiveGrid();
+        const $ = win.jQuery;
+        if (grid && $) {
+            try {
+                if ($(grid).data('jqxGrid')) {
+                    $(grid).jqxGrid(selectAll ? 'selectallrows' : 'clearselection');
+                }
+            } catch (e) {}
+            try {
+                if (typeof $(grid).emapdatatable === 'function') {
+                    $(grid).emapdatatable(selectAll ? 'checkAll' : 'uncheckAll');
+                }
+            } catch (e) {}
+        }
+        const checkboxes = document.querySelectorAll('.jqx-grid-content .jqx-checkbox, [data-action="grid"] .jqx-checkbox, #emapdatatable input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            if (cb.tagName === 'INPUT') {
+                if (cb.checked !== selectAll) {
+                    cb.checked = selectAll;
+                    cb.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            } else {
+                const isChecked = cb.getAttribute('aria-checked') === 'true';
+                if (isChecked !== selectAll) cb.click();
+            }
+        });
+        updateBatchCountUI();
+        showToast(selectAll ? `已全选当前页所有待办` : '已取消全选');
+    }
+
+    function updateBatchCountUI() {
+        const count = getSelectedRecords().length;
+        const countEl = document.getElementById('nnu-selected-count');
+        if (countEl) countEl.textContent = `已选: ${count} 条`;
+        const btnAgree = document.getElementById('nnu-btn-batch-agree');
+        if (btnAgree) {
+            btnAgree.textContent = count > 0 ? `批量同意 (${count}条)` : '批量同意已选';
+            btnAgree.style.opacity = count > 0 ? '1' : '0.6';
+        }
+    }
+
+    // 解除 options 中的 maxCheckCount / checkLimit / maxSelected 等限制
+    function unlockGridSelectionLimits() {
+        const $ = win.jQuery;
+        if (!$ || !$.fn) return;
+        if ($.fn.emapdatatable && !$.fn.emapdatatable._nnuUnlocked) {
+            const origEmapdatatable = $.fn.emapdatatable;
+            $.fn.emapdatatable = function (options, ...args) {
+                if (options && typeof options === 'object') {
+                    options.maxCheckCount = 999999;
+                    options.maxCheck = 999999;
+                    options.checkLimit = 999999;
+                    options.maxSelected = 999999;
+                }
+                return origEmapdatatable.apply(this, [options, ...args]);
+            };
+            $.fn.emapdatatable._nnuUnlocked = true;
+        }
+
+        // 屏蔽原生 "批量处理不能超过10条" / "最多只能选择10条" 阻断提示
+        if ($.bhTip && !$.bhTip._nnuWrapped) {
+            const origBhTip = $.bhTip;
+            $.bhTip = function (options, ...args) {
+                const content = typeof options === 'string' ? options : (options && options.content || '');
+                if (/(?:超过|最多|上限).*?10|10.*?(?:条|个)/i.test(content)) {
+                    console.log('[NNU] 已解除 10 条上限阻断提示:', content);
+                    return;
+                }
+                return origBhTip.apply(this, [options, ...args]);
+            };
+            $.bhTip._nnuWrapped = true;
+        }
+        if (win.BH_UTILS && win.BH_UTILS.bhTip && !win.BH_UTILS.bhTip._nnuWrapped) {
+            const origBhUtilTip = win.BH_UTILS.bhTip;
+            win.BH_UTILS.bhTip = function (options, ...args) {
+                const content = typeof options === 'string' ? options : (options && options.content || '');
+                if (/(?:超过|最多|上限).*?10|10.*?(?:条|个)/i.test(content)) {
+                    console.log('[NNU] 已解除 BH_UTILS 10 条上限阻断提示:', content);
+                    return;
+                }
+                return origBhUtilTip.apply(this, [options, ...args]);
+            };
+            win.BH_UTILS.bhTip._nnuWrapped = true;
+        }
+    }
+
+    // 执行批量同意
+    function executeBatchApprove() {
+        lastInteractTime = Date.now();
+        const records = getSelectedRecords();
+        if (!records.length) {
+            showToast('请先勾选需要批量同意的请假待办');
+            return;
+        }
+
+        // 优先触发原生批量处理按钮
+        const nativeBatchBtn = Array.from(document.querySelectorAll('button, a, .bh-btn, [data-action]')).find(el => {
+            const txt = (el.textContent || '').trim();
+            const act = el.getAttribute('data-action') || '';
+            return !el.closest('#nnu-ball-panel') && (/批量(?:同意|通过|审核|处理|办理)/.test(txt) || /batch(?:Review|Agree|Pass|Audit)/i.test(act)) && el.offsetParent;
+        });
+
+        if (nativeBatchBtn) {
+            showToast(`正在批量提交 ${records.length} 条待办...`);
+            nativeBatchBtn.click();
+            setTimeout(() => {
+                // 如果弹出了批量处理确认弹窗，自动填入处理意见并点击确定
+                const modal = document.querySelector('.bh-dialog-con, .bh-paper-pile-dialog, .bh-window, .bh-dialog');
+                if (modal) {
+                    const ta = modal.querySelector('textarea');
+                    if (ta) {
+                        ta.value = autoOpinionText;
+                        ta.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+            }, 300);
+            return;
+        }
+
+        showToast(`已选 ${records.length} 条，请直接点击表格上方的【批量同意】按钮提交`);
+    }
+
     // ================= 5. 处理意见置顶与紧凑整理 =================
     function liftReviewFormToTop() {
         const containers = document.querySelectorAll('.bh-paper-pile-dialog, .bh-card-lv4 .bh-dialog-center, .bh-window .bh-window-content, .bh-dialog .bh-dialog-center, .bh-dialog-content');
@@ -509,6 +666,14 @@
                 </select>
                 <button id="nnu-btn-apply" class="nnu-btn">刷新</button>
             </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#f6f9fc;border-radius:5px;border:1px solid #e5e9f2;font-size:13px">
+                <span id="nnu-selected-count" style="font-weight:600;color:#1890ff">已选: 0 条</span>
+                <div style="display:flex;gap:5px">
+                    <button id="nnu-btn-select-all" class="nnu-btn nnu-btn-secondary" style="padding:3px 6px;font-size:12px">全选</button>
+                    <button id="nnu-btn-unselect-all" class="nnu-btn nnu-btn-secondary" style="padding:3px 6px;font-size:12px">清空</button>
+                    <button id="nnu-btn-batch-agree" class="nnu-btn" style="padding:3px 8px;font-size:12px">批量同意</button>
+                </div>
+            </div>
             <label style="cursor:pointer;display:flex;align-items:center;gap:8px">
                 <input type="checkbox" id="nnu-check-tallview" ${isTallView ? 'checked' : ''}>
                 <span>加高主表</span>
@@ -531,6 +696,7 @@
         const togglePanel = show => {
             isOpen = typeof show === 'boolean' ? show : !isOpen;
             panel.classList.toggle('show', isOpen);
+            if (isOpen) updateBatchCountUI();
         };
 
         ball.addEventListener('click', e => {
@@ -542,6 +708,21 @@
         document.getElementById('nnu-panel-close').addEventListener('click', e => {
             e.stopPropagation();
             togglePanel(false);
+        });
+
+        document.getElementById('nnu-btn-select-all').addEventListener('click', e => {
+            e.stopPropagation();
+            toggleSelectAll(true);
+        });
+
+        document.getElementById('nnu-btn-unselect-all').addEventListener('click', e => {
+            e.stopPropagation();
+            toggleSelectAll(false);
+        });
+
+        document.getElementById('nnu-btn-batch-agree').addEventListener('click', e => {
+            e.stopPropagation();
+            executeBatchApprove();
         });
 
         document.addEventListener('click', e => {
@@ -585,6 +766,7 @@
         });
 
         updateLogPanelUI();
+        updateBatchCountUI();
     }
 
     // ================= 7. 快捷键 =================
@@ -622,13 +804,34 @@
         injectStyles();
 
         const onReady = () => {
+            unlockGridSelectionLimits();
             renderFloatingBall();
             apply75vhHeight();
             document.addEventListener('keydown', handleKeys);
 
             win.addEventListener('resize', apply75vhHeight);
 
+            // 监听表格复选框变更，实时更新批量计数
+            document.addEventListener('change', e => {
+                if (e.target.matches('input[type="checkbox"]')) {
+                    setTimeout(updateBatchCountUI, 50);
+                }
+            }, true);
+
+            document.addEventListener('click', e => {
+                if (e.target.closest('.jqx-checkbox, .bh-checkbox, [data-action="checkAll"]')) {
+                    setTimeout(updateBatchCountUI, 50);
+                }
+                // 原生全选表头点击适配
+                const headerCheck = e.target.closest('.jqx-grid-column-header .jqx-checkbox, [data-action="checkAll"], th input[type="checkbox"]');
+                if (headerCheck) {
+                    unlockGridSelectionLimits();
+                    setTimeout(updateBatchCountUI, 100);
+                }
+            }, true);
+
             const observer = new MutationObserver(() => {
+                unlockGridSelectionLimits();
                 liftReviewFormToTop();
             });
             observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
@@ -641,6 +844,7 @@
         }
 
         win.addEventListener('load', () => {
+            unlockGridSelectionLimits();
             setTimeout(apply75vhHeight, 500);
             setTimeout(apply75vhHeight, 1500);
         });
