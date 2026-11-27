@@ -28,15 +28,23 @@ A browser userscript for Nanjing Normal University's leave approval system, buil
 
 | Feature | Description |
 |---|---|
+| ⚡ **Hot-Path Optimization** | Inspired by `EL4CTEO/fast-anything`: precompiled regex fast-paths, `requestAnimationFrame`-batched DOM observers, O(1) unlock caching, and `jqxGrid` `beginupdate`/`endupdate` batch selection to eliminate mobile frame drops. |
+| 🖼️ **Attachment Image Preview Fixer** | Sniffs `getUploadedAttachment.do` responses and DOM links, falls back to credentialed `fetch` → `Blob` URLs when images fail to load, and provides a touch-friendly fullscreen lightbox with zoom and 90° rotation. |
+| 📱 **Mobile One-Tap Approval** | Responsive mobile layout plus touch-friendly **⚡ 一键同意并提交** (One-Tap Approve & Submit) and **✍️ 仅填同意** buttons directly above the review opinion box. |
 | 📋 **Page Size Control** | Choose 10, 20, 50, or 100 rows. Refresh synchronizes the jqxGrid / jqxDataTable page size and returns to the first page. Refreshing the same size is supported. |
 | ✅ **Batch Multi-Select & Approve** | Remove the native 10-item batch approval limit. Freely check multiple items or click Select All to approve all selected pending tasks in one batch. |
-| ↕️ **Taller Main Table** | Toggle a 75vh table viewport. Visible rows still depend on screen size, row height, and returned data. |
-| ✨ **Minimal Interface** | 15px primary text, numeric page-size options, and collapsed diagnostics and shortcut help. |
-| 📝 **Review Details** | Keep the original dialog width, adapt content height, and move the review opinion area to the top with a highlight. |
-| 📜 **Full Workflow History** | Remove the plugin's height and text-clipping limits so existing workflow comments can be displayed in full. |
+| ↕️ **Taller Main Table** | Toggle a 75vh (60vh on mobile) table viewport. Visible rows still depend on screen size, row height, and returned data. |
+| 📝 **Review Details & History** | Keep the original dialog width, adapt content height, move the review opinion area to the top with a highlight, and display full workflow history without clipping. |
 | 🔗 **Native Flow Diagram** | Skip plugin execution on flow diagram pages, preserving the site's original layout and click interactions. |
-| ⚡ **Reduced Visual Delay** | Disable animations and transitions, and attempt to dismiss loading masks after requests. Actual response time depends on the network and server. |
-| 🔎 **Diagnostics** | Keep the latest 15 requests or pagination operations. Main-table XHR logs include pagination parameters and response counts without copying student records. |
+
+---
+
+### 📱 Mobile Browser Setup (Recommended over Native App)
+
+The built-in university App WebView cannot run userscripts and frequently fails to preview leave attachment images. Using a mobile browser with this userscript is faster and fixes image previews:
+
+- **Android / HarmonyOS**: Install **Lemur Browser** or **Firefox Mobile**, add **Tampermonkey**, install `nnu_leave_enhancer.user.js`, and "Add to Home Screen" for app-like launch.
+- **iOS (iPhone / iPad)**: Install **Userscripts** or **Stay 2** from the App Store, enable it in *Settings → Safari → Extensions*, and import `nnu_leave_enhancer.user.js`.
 
 ---
 
@@ -56,8 +64,6 @@ A browser userscript for Nanjing Normal University's leave approval system, buil
 2. Create a new script in your userscript manager, replace the template, and save.
 3. Reload the university page to activate the script.
 
-**Updating:** Replace the existing script and avoid enabling duplicate copies. v1.0.0 is the first formal release and incorporates development versions v1.0.6–v1.0.8; users of those versions should replace the script manually. Reloading removes previously injected styles.
-
 ---
 
 ### 📖 User Guide
@@ -65,20 +71,11 @@ A browser userscript for Nanjing Normal University's leave approval system, buil
 | Control | Action |
 |---|---|
 | **每页行数 → 刷新** | Set the page size and load the first page. |
+| **全选 / 清空 / 批量同意** | Select all rows on the current page, clear selection, or submit batch approval. |
+| **⚡ 一键同意并提交** | Touch button inside review dialog: select approve, fill “同意”, and submit. |
+| **🖼️ 全屏预览** | Open the attachment lightbox with zoom, 90° rotation, and next/prev navigation. |
 | **加高主表** | Toggle the taller main-table viewport. |
-| **诊断与快捷键 → 复制诊断日志** | Copy diagnostic information. |
-| **`Alt + A`** | Select approval and fill the opinion field with “同意” in the review view. |
-| **`Alt + Enter`** | Click the visible confirm, submit, approve, or save button; this performs an actual submission. |
-
-Page size and viewport preferences are stored in the site's local storage. The control labels remain Chinese to match the university system.
-
-### 🔧 Troubleshooting
-
-If 50 rows are selected but only 10 appear, wait for loading to finish and copy the diagnostics. Compare the widget's page size, outgoing `queryUserTasks.do` pagination parameters, and returned array lengths and totals.
-
-HTTP 200 does not prove that the selected page size took effect. A short final page or a small filtered result is normal. Server limits and changes to the site's API or components may also affect behavior.
-
-Logs include the current page URL. Remove session parameters before sharing them publicly.
+| **`Alt + A` / `Alt + Enter`** | Desktop shortcuts: fill approval / submit review. |
 
 ---
 
@@ -90,15 +87,23 @@ Logs include the current page URL. Remove session parameters before sharing them
 
 | 功能 | 说明 |
 |---|---|
+| ⚡ **5% 热路径极致加速** | 借鉴 `EL4CTEO/fast-anything` 思想：预编译正则与子串短路（Fast-Path）、`requestAnimationFrame` 帧级合并 DOM 监听、O(1) 解锁缓存、`jqxGrid` `beginupdate`/`endupdate` 冻结重绘，大幅降低手机端卡顿。 |
+| 🖼️ **附件图片强力兜底预览** | 自动嗅探 `getUploadedAttachment.do` 与页面图片链接；遇裂图或下载拦截时自动通过带凭证的 `fetch` 转 `Blob` 渲染，并提供支持**双指/按钮缩放、90° 左右旋转、多图切换**的轻量全屏灯箱。 |
+| 📱 **手机端一键审批与适配** | 针对手机窄屏优化排版，在置顶意见框上方注入大尺寸触控按钮 **【⚡ 一键同意并提交】** 与 **【✍️ 仅填同意】**，无需键盘快捷键即可单手完成审批。 |
 | 📋 **主表行数切换** | 支持 10、20、50、100 行。刷新时同步 jqxGrid / jqxDataTable 分页状态并返回第一页，相同行数也可再次刷新。 |
-| ✅ **突破批量上限与全选** | 彻底解除系统原生 10 条批量审批上限，支持复选框自由多选与表头一键“全选”，支持批量同意当前页所有待办。 |
-| ↕️ **主表大视窗** | 可切换 75vh 视窗；实际可见行数取决于屏幕尺寸、行高与接口返回数据。 |
-| ✨ **简洁操作面板** | 15px 主字号，行数选项仅显示数字，诊断与快捷键默认折叠。 |
-| 📝 **审批详情优化** | 保留原生宽度，内容高度自适应；处理意见区域置顶并高亮。 |
-| 📜 **流转信息完整展示** | 取消插件对高度和文字行数的限制，按已有内容完整展示。 |
-| 🔗 **原生流程图交互** | 流程图页面直接跳过插件处理，不注入样式、不绑定事件、不拦截请求，保留原生尺寸与点击交互。 |
-| ⚡ **减少视觉等待** | 关闭动画与过渡，并在请求结束后尝试解除加载遮罩；实际响应时间由网络和服务器决定。 |
-| 🔎 **内置诊断日志** | 记录最近 15 项请求或分页操作；主表 XHR 请求额外记录分页参数与响应数量，不复制学生记录明细。 |
+| ✅ **突破批量上限与全选** | 彻底解除系统原生 10 条批量审批上限，支持复选框自由多选与一键“全选”，支持批量同意当前页所有待办。 |
+| ↕️ **主表大视窗** | 桌面端 75vh / 移动端 60vh 视窗；实际可见行数取决于屏幕尺寸、行高与接口返回数据。 |
+| 📝 **审批详情与流转记录** | 保留原生宽度，内容高度自适应；处理意见置顶高亮，取消流转信息高度与行数截断限制。 |
+| 🔗 **原生流程图交互** | 流程图页面直接跳过插件处理，保留原生尺寸与点击交互。 |
+
+---
+
+### 📱 手机端使用建议（网页 + 脚本 vs 学校 App）
+
+学校 App 内置 WebView 封闭，既无法运行加速脚本，也经常因跨域或下载头拦截导致学生病假条图片预览失败。推荐直接使用**手机浏览器 + 油猴扩展**：
+
+- **Android / 鸿蒙**：使用 **狐猴浏览器（Lemur Browser）** 或 **Firefox 移动版** 安装 **Tampermonkey** 扩展并导入脚本，随后将请假审核页「添加到主屏幕」，即可像原生 App 一样一键打开。
+- **iOS（iPhone / iPad）**：在 App Store 下载免费开源的 **Userscripts** 或 **Stay 2**，在「设置 → Safari 浏览器 → 扩展」中启用并导入本脚本即可在 Safari 中运行。
 
 ---
 
@@ -118,8 +123,6 @@ Logs include the current page URL. Remove session parameters before sharing them
 2. 在脚本管理器中新建脚本，替换模板内容并保存。
 3. 重新加载学校网页即可使用。
 
-**更新说明：** 替换原脚本，避免并行启用多个版本。v1.0.0 为首个正式 Release，整合了开发阶段 v1.0.6–v1.0.8 的修改；这些开发版本的用户请手动替换。重新加载网页才能清除旧版本注入的样式。
-
 ---
 
 ### 📖 使用指南
@@ -127,59 +130,21 @@ Logs include the current page URL. Remove session parameters before sharing them
 | 操作 | 效果 |
 |---|---|
 | **每页行数 → 刷新** | 设置主表分页并回到第一页。 |
+| **全选 / 清空 / 批量同意** | 一键全选当前页待办并突破 10 条上限批量审批。 |
+| **⚡ 一键同意并提交** | 手机端详情页顶部按钮：一键勾选同意、填入“同意”并提交。 |
+| **🖼️ 全屏预览** | 打开附件高清灯箱，支持放大缩小与 90° 旋转（专治倒拍请假条）。 |
 | **加高主表** | 切换主表大视窗。 |
-| **诊断与快捷键 → 复制诊断日志** | 复制排查信息。 |
-| **`Alt + A`** | 在审核页面勾选“同意”并填入意见，默认“同意”。 |
-| **`Alt + Enter`** | 点击当前可见的确定、提交、通过或保存按钮，会执行实际提交。 |
-
-每页行数和大视窗偏好保存在网页本地存储中。
-
-### 🔧 常见问题
-
-**选择 50 行后仍只显示 10 行？**
-
-等待请求完成，再复制诊断日志，对比组件内部的每页行数、`queryUserTasks.do` 发出的分页参数，以及响应数组长度与总数。
-
-HTTP 200 只表示请求完成，不代表目标行数已经生效。末页或筛选结果不足 50 条时，显示较少记录属于正常情况；服务器上限、接口结构变化或学校更新组件也可能影响行为。
-
-**分享诊断日志前需要注意什么？**
-
-日志不复制学生记录明细，但包含当前页面 URL；对外分享前请移除 URL 中的会话参数。
+| **`Alt + A` / `Alt + Enter`** | 电脑端快捷键：填入同意 / 提交审核。 |
 
 ---
 
-### 🏗️ Directory Structure / 项目结构
-
-```text
-NNU_LeaveFaster/
-├── nnu_leave_enhancer.user.js  # Installable userscript / 油猴脚本
-├── test-pagination.cjs        # Regression checks / 分页回归检查
-├── README.md                  # User guide / 使用说明
-├── RELEASE_NOTES.md           # v1.0.0 release notes / 发布说明
-└── assets/
-    └── icon.svg               # Project icon / 项目矢量图标
-```
-
 ### 🧪 Development & Validation / 开发与验证
-
-No build step or npm dependencies. Tested with Node.js 22.<br>
-无需构建或安装 npm 依赖，已在 Node.js 22 验证。
 
 ```sh
 node --check nnu_leave_enhancer.user.js
 node test-pagination.cjs
 ```
 
-Checks cover pagination parameter rewriting, encoded JSON and forms, widget pagination, repeated refreshes, dialog-table exclusion, diagnostic summaries, and early exit on flow diagram pages. Widgets are mocked; these checks do not replace validation on the university site.
-
-回归检查覆盖分页参数改写、编码 JSON 与表单、组件分页、重复刷新、详情表格排除、诊断摘要及流程图页面提前退出。组件使用模拟对象，不能替代学校真实网页验证。
-
-Manual checks: switch between 10 and 50 rows, navigate pages, refresh again, inspect workflow history, and click the flow diagram.<br>
-手动检查：切换 10 / 50 行并翻页、重复刷新、检查流转信息，以及点击流程图验证原生交互。
-
----
-
 ### License
 
-MIT License — following the repository's existing license declaration.<br>
-MIT License（沿用仓库现有声明）。
+MIT License

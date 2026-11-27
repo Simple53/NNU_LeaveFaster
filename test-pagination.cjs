@@ -15,16 +15,23 @@ class XHR {
 const window = { XMLHttpRequest: XHR, FormData, URLSearchParams };
 window.self = window.top = window;
 const context = vm.createContext({
-    window, location: { href: '' }, console, setTimeout() {},
+    window, location: { href: '', origin: 'https://ehallapp.nnu.edu.cn' }, console, setTimeout() {},
     localStorage: { getItem: () => null },
     document: { getElementById: () => null },
 });
 vm.runInContext(source.replace('    init();', `
-    globalThis.test = { rewritePageParams, triggerReloadData, summarizePageResponse, getMainTables };
+    globalThis.test = {
+        rewritePageParams, triggerReloadData, summarizePageResponse, getMainTables,
+        extractAttachmentsFromPayload, fillAgreeOpinion, submitReviewForm, toggleSelectAll
+    };
     currentCustomPageSize = 50;
     showToast = message => { globalThis.lastToast = message; };
 `), context);
-const { rewritePageParams, triggerReloadData, summarizePageResponse } = context.test;
+const {
+    rewritePageParams, triggerReloadData, summarizePageResponse,
+    extractAttachmentsFromPayload, fillAgreeOpinion, submitReviewForm, toggleSelectAll
+} = context.test;
+
 for (const key of ['pageSize', 'pagesize', '*pageSize', '%2ApageSize', 'rows', 'limit']) {
     assert.equal(rewritePageParams(`${key}=10&pageNumber=3`), `${key}=50&pageNumber=3`);
 }
@@ -39,6 +46,7 @@ for (const Body of [FormData, URLSearchParams]) {
     assert.equal(body.get('pageNumber'), '2');
 }
 assert.equal(rewritePageParams('filter=%ZZ&status=pending'), 'filter=%ZZ&status=pending');
+assert.equal(rewritePageParams('status=pending&userId=12345'), 'status=pending&userId=12345');
 for (const action of ['queryUserTasks.do', 'getList.do', 'review.do']) {
     const xhr = new XHR();
     xhr.open('POST', `/${action}?pageSize=10`);
@@ -84,4 +92,67 @@ for (const kind of ['jqxGrid', 'jqxDataTable']) {
 context.document.querySelectorAll = () => [];
 triggerReloadData();
 assert.match(context.lastToast, /未找到/);
-console.log('Pagination regression checks passed.');
+
+// Attachment extraction unit tests
+const sampleAttachmentPayload = {
+    datas: {
+        rows: [
+            { fileName: '病假条.jpg', fileUrl: '/qljfw/file/101.jpg' },
+            { fileName: '病假条.jpg', fileUrl: '/qljfw/file/101.jpg' }, // duplicate
+            { fileName: '医院证明.png', fileToken: 'tok-999' },
+            { fileName: 'xss.jpg', url: 'javascript:alert(1)' },
+            { fileName: 'notes.txt', url: '/qljfw/file/notes.txt' },
+        ]
+    }
+};
+const extracted = extractAttachmentsFromPayload(sampleAttachmentPayload, 'https://ehallapp.nnu.edu.cn');
+assert.deepEqual(JSON.parse(JSON.stringify(extracted)), [
+    { name: '病假条.jpg', url: 'https://ehallapp.nnu.edu.cn/qljfw/file/101.jpg' },
+    { name: '医院证明.png', url: 'https://ehallapp.nnu.edu.cn/qljfw/sys/emapcomponent/file/getAttachmentFile/tok-999.do' },
+]);
+
+// Mobile one-tap approve & submit helper tests
+let radioClicked = false, btnClicked = false;
+const eventsDispatched = [];
+const mockDoc = {
+    querySelectorAll(sel) {
+        if (sel === 'input[type="radio"]') {
+            return [{ parentElement: { textContent: '同意' }, click() { radioClicked = true; } }];
+        }
+        if (sel === 'textarea') {
+            return [{ offsetParent: {}, value: '', dispatchEvent(ev) { eventsDispatched.push(ev.type); } }];
+        }
+        if (sel.includes('button')) {
+            return [
+                { textContent: '⚡ 一键同意并提交', offsetParent: {}, closest: () => ({}), click() { throw Error('must skip quick bar button'); } },
+                { textContent: '确定', offsetParent: {}, disabled: false, closest: () => null, click() { btnClicked = true; } },
+            ];
+        }
+        return [];
+    }
+};
+context.Event = class Event { constructor(type) { this.type = type; } };
+assert.equal(fillAgreeOpinion(mockDoc), true);
+assert.equal(radioClicked, true);
+assert.deepEqual(eventsDispatched, ['input', 'change']);
+assert.equal(submitReviewForm(mockDoc), true);
+assert.equal(btnClicked, true);
+
+// Batch selectAll uses beginupdate/endupdate to prevent N-row reflows
+const calls = [];
+const mainEl = { getClientRects: () => [1], closest: () => null };
+context.document.querySelectorAll = sel => (!sel.includes('checkbox') && sel.includes('emapdatatable') ? [mainEl] : []);
+window.jQuery = () => ({
+    data: k => (k === 'jqxGrid' ? {} : undefined),
+    jqxGrid(cmd) { calls.push(cmd); },
+});
+toggleSelectAll(true);
+assert.deepEqual(calls, ['beginupdate', 'selectallrows', 'endupdate']);
+
+// fast-anything style micro-benchmark for hot-path rewritePageParams
+const t0 = performance.now();
+for (let i = 0; i < 10000; i++) rewritePageParams('status=pending&pageNumber=2&user=abc');
+const fastPathMs = performance.now() - t0;
+assert.ok(fastPathMs < 500, `Fast-path too slow: ${fastPathMs}ms`);
+
+console.log(`All regression & fast-path checks passed (10k fast-path calls: ${fastPathMs.toFixed(2)}ms).`);
