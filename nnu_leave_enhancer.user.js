@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         NNU LeaveFaster
 // @namespace    https://github.com/Simple53/NNU_LeaveFaster
-// @version      1.1.0
-// @description  专为南师大请假系统定制：热路径加速、手机端一键同意与适配、附件图片强力兜底预览(防裂图/可旋转缩放)、突破10条批量上限支持全选、同步jqx分页刷新
+// @version      1.1.1
+// @description  南师大请假审批工作台增强：HeroUI v3 风格界面、热路径加速、移动端快捷审批、证明附件预览灯箱、突破10条批量限制与主表分页同步
 // @author       Antigravity
 // @homepageURL  https://github.com/Simple53/NNU_LeaveFaster
 // @supportURL   https://github.com/Simple53/NNU_LeaveFaster/issues
-// @icon         data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPk5OVSBMZWF2ZUZhc3RlcjwvdGl0bGU+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTYiIGZpbGw9IiMxNjc3RkYiLz4KICA8cGF0aCBkPSJNMjAgMTNoMThsOSA5djI3YTMgMyAwIDAgMS0zIDNIMjBhMyAzIDAgMCAxLTMtM1YxNmEzIDMgMCAwIDEgMy0zWiIgZmlsbD0id2hpdGUiLz4KICA8cGF0aCBkPSJNMzcgMTN2MTBoMTAiIGZpbGw9IiNCOEQ3RkYiLz4KICA8cGF0aCBkPSJtMjQgMzUgNiA2IDEyLTEzIiBzdHJva2U9IiMxNjc3RkYiIHN0cm9rZS13aWR0aD0iNC41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICA8cGF0aCBkPSJNOSAyNmgxM003IDMzaDEyIiBzdHJva2U9IiNCOEQ3RkYiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=
+// @icon         data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPk5OVSBMZWF2ZUZhc3RlcjwvdGl0bGU+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMxMTE4MjciLz4KICA8cGF0aCBkPSJNMjAgMTNoMThsOSA5djI3YTMgMyAwIDAgMS0zIDNIMjBhMyAzIDAgMCAxLTMtM1YxNmEzIDMgMCAwIDEgMy0zWiIgZmlsbD0id2hpdGUiLz4KICA8cGF0aCBkPSJNMzcgMTN2MTBoMTAiIGZpbGw9IiNEQ0U2RjUiLz4KICA8cGF0aCBkPSJtMjQgMzUgNiA2IDEyLTEzIiBzdHJva2U9IiMyNTYzRUIiIHN0cm9rZS13aWR0aD0iNC41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+Cg==
 // @match        https://ehallapp.nnu.edu.cn/qljfw/sys/lwNjnuStuLeaveManagement/*
 // @match        *://ehallapp.nnu.edu.cn/*
 // @match        *://*/*/sys/lwNjnuStuLeaveManagement/*
@@ -15,6 +15,15 @@
 // @grant        unsafeWindow
 // @allFrames    true
 // ==/UserScript==
+
+/*
+ * Unslop & HeroUI v3 Design Direction:
+ * - Product: Leave-approval workspace enhancer and attachment inspector for NNU faculty and counselors.
+ * - Character: calm, exact, tactile.
+ * - World: University administrative desk and precision instruments — quiet ink-graphite neutral surfaces (oklch ramp).
+ * - Moments: (1) Top review action bar with tactile keycaps & one-tap approval; (2) Inline proof filmstrip & inspection lightbox.
+ * - Signature: Tactile monospace keycaps (.nnu-kbd) and tabular-numeral status readouts (tabular-nums).
+ */
 
 (function () {
     'use strict';
@@ -50,15 +59,11 @@
     const autoOpinionText = localStorage.getItem(STORAGE_KEY_AUTO_OPINION) || '同意';
     let isTallView = localStorage.getItem(STORAGE_KEY_TALL_VIEW) !== 'false';
 
-    // 交互时间锁与批处理锁
     let lastInteractTime = 0;
     let _batchSelectionLock = false;
     let _domObserverRaf = null;
-    let _emapUnlocked = false;
     let _bhTipUnlocked = false;
     let _bhUtilTipUnlocked = false;
-
-    // 最近一次审核单的附件缓存
     let latestAttachments = [];
 
     const requestLogs = [];
@@ -69,31 +74,36 @@
         updateLogPanelUI();
     }
 
-    // ================= 纯净无动画 SVG 图标库 =================
-    const ICON_APP = `<svg width="20" height="20" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <title>NNU LeaveFaster</title>
-  <rect width="64" height="64" rx="16" fill="#1677FF"/>
-  <path d="M20 13h18l9 9v27a3 3 0 0 1-3 3H20a3 3 0 0 1-3-3V16a3 3 0 0 1 3-3Z" fill="white"/>
-  <path d="M37 13v10h10" fill="#B8D7FF"/>
-  <path d="m24 35 6 6 12-13" stroke="#1677FF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M9 26h13M7 33h12" stroke="#B8D7FF" stroke-width="3" stroke-linecap="round"/>
-</svg>`;
-    const ICON_CLOSE = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    // ================= 统一 Lucide 线性图标集 (16px, 1.5px stroke, 零 Emoji) =================
+    const svgIcon = paths => `<svg class="nnu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+    const ICON_CHECK_DOC = svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/>');
+    const ICON_CLOSE = svgIcon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>');
+    const ICON_REFRESH = svgIcon('<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>');
+    const ICON_CHECK = svgIcon('<polyline points="20 6 9 17 4 12"/>');
+    const ICON_EDIT = svgIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>');
+    const ICON_IMAGE = svgIcon('<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>');
+    const ICON_ROTATE_CCW = svgIcon('<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>');
+    const ICON_ROTATE_CW = svgIcon('<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>');
+    const ICON_ZOOM_IN = svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>');
+    const ICON_ZOOM_OUT = svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>');
+    const ICON_CHEVRON_LEFT = svgIcon('<path d="m15 18-6-6 6-6"/>');
+    const ICON_CHEVRON_RIGHT = svgIcon('<path d="m9 18 6-6-6-6"/>');
+    const ICON_EXTERNAL = svgIcon('<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>');
+    const ICON_COPY = svgIcon('<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>');
 
     // ================= 1. 网络拦截层 =================
     function rewritePageParams(bodyOrUrl) {
         if (!bodyOrUrl) return bodyOrUrl;
         try {
             if (typeof bodyOrUrl === 'string') {
-                // Fast-path：不包含分页关键词且不含 URL 编码时直接 O(1) 返回
                 if (!RE_FAST_PAGE_CHECK.test(bodyOrUrl) && bodyOrUrl.indexOf('%') === -1) {
                     return bodyOrUrl;
                 }
                 let res = bodyOrUrl.replace(RE_JSON_PAGESIZE,
                     (_, prefix, quote) => `${prefix}${quote}${currentCustomPageSize}${quote}`);
-                // EMAP 可能发送 *pageSize、%2ApageSize，或表单内 URL 编码的 JSON。
                 if (!RE_JSON_START.test(res)) {
-                    res = res.replace(RE_KV_ENTRY, (entry, sep, key, value) => {
+                    const kvRegex = new RegExp(RE_KV_ENTRY.source, 'g');
+                    res = res.replace(kvRegex, (entry, sep, key, value) => {
                         try {
                             const name = decodeURIComponent(key.replace(/\+/g, ' '));
                             if (RE_PAGE_KEY.test(name)) {
@@ -126,7 +136,6 @@
         return bodyOrUrl;
     }
 
-    // 仅记录分页元数据及数组长度，不复制学生信息。
     function summarizePageResponse(value, depth = 0) {
         if (Array.isArray(value)) return { count: value.length };
         if (!value || typeof value !== 'object' || depth > 5) return undefined;
@@ -155,7 +164,6 @@
         } catch (e) { return {}; }
     }
 
-    // 递归提取接口响应中的图片/附件元数据，用于强力兜底预览
     function extractAttachmentsFromPayload(payload, baseOrigin = '') {
         const results = [];
         const seenUrls = new Set();
@@ -184,14 +192,13 @@
 
             let candidateUrl = resolveUrl(rawUrl);
             if (!candidateUrl && fileToken && (RE_IMAGE_EXT.test(name) || node.fileUrl !== undefined || node.fileName !== undefined)) {
-                // 金智 EMAP 常见附件下载接口兜底格式
                 candidateUrl = resolveUrl(`/qljfw/sys/emapcomponent/file/getAttachmentFile/${encodeURIComponent(String(fileToken))}.do`);
             }
 
             if (candidateUrl && (RE_IMAGE_EXT.test(name) || RE_IMAGE_EXT.test(candidateUrl) || RE_DOWNLOAD_LINK.test(candidateUrl))) {
                 if (!seenUrls.has(candidateUrl)) {
                     seenUrls.add(candidateUrl);
-                    results.push({ name: name || `附件图片 ${results.length + 1}`, url: candidateUrl });
+                    results.push({ name: name || `附件 ${results.length + 1}`, url: candidateUrl });
                 }
             }
 
@@ -241,6 +248,10 @@
                 details += parsedJson
                     ? ` | 返回分页:${JSON.stringify(summarizePageResponse(parsedJson) || {})}`
                     : ' | 返回内容不是可解析的 JSON';
+                setTimeout(() => {
+                    apply75vhHeight();
+                    updateBatchCountUI();
+                }, 120);
             }
 
             if (parsedJson && (RE_ATTACHMENT_API.test(name) || RE_REVIEW_API.test(name))) {
@@ -278,37 +289,54 @@
         };
     }
 
-    // ================= 2. 样式注入 (关闭动画渐变 + 自适应 + 移动端适配 + 图片灯箱) =================
+    // ================= 2. 样式系统 (HeroUI v3 oklch 变量 + Unslop 4px 网格与嵌套圆角) =================
     function injectStyles() {
+        if (document.getElementById('nnu-leavefaster-styles')) return;
         const css = `
-            /* ===== 彻底关闭所有过渡动画、渐变、悬浮延迟 ===== */
-            *, *::before, *::after {
-                transition: none !important;
-                animation-duration: 0s !important;
-                animation-delay: 0s !important;
+            :root {
+                --heroui-bg: oklch(0.985 0.002 248);
+                --heroui-surface: oklch(1 0 0);
+                --heroui-surface-2: oklch(0.962 0.004 248);
+                --heroui-surface-3: oklch(0.935 0.006 248);
+                --heroui-fg: oklch(0.18 0.01 248);
+                --heroui-fg-secondary: oklch(0.42 0.015 248);
+                --heroui-fg-muted: oklch(0.54 0.015 248);
+                --heroui-border: oklch(0.18 0.01 248 / 0.08);
+                --heroui-border-strong: oklch(0.18 0.01 248 / 0.14);
+                --heroui-accent: oklch(0.55 0.19 254);
+                --heroui-accent-hover: oklch(0.49 0.19 254);
+                --heroui-accent-fg: oklch(0.99 0 0);
+                --heroui-success: oklch(0.56 0.15 148);
+                --heroui-warning: oklch(0.64 0.15 65);
+                --heroui-danger: oklch(0.55 0.19 25);
+                --heroui-radius-panel: 16px;
+                --heroui-radius-card: 12px;
+                --heroui-radius-control: 8px;
+                --heroui-radius-kbd: 6px;
+                --heroui-shadow-panel: 0 8px 24px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+                --heroui-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+                --heroui-font-sans: "Inter", "Geist", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+                --heroui-font-mono: "JetBrains Mono", "Geist Mono", "IBM Plex Mono", Consolas, monospace;
             }
+
             .sc-animated, .bh-animated-doubleTime, .bh-single-animate, .waves-effect {
                 transition: none !important;
                 animation: none !important;
             }
-            .bh-header-bg, .bh-headerBar,
-            #nnu-ball, .nnu-btn, .bh-btn-primary, .bh-btn {
+            .bh-header-bg, .bh-headerBar, .bh-btn-primary, .bh-btn {
                 background-image: none !important;
             }
 
-            /* ===== 主表 75vh 大视窗 ===== */
-            .nnu-tall-view .nnu-main-grid,
-            .nnu-tall-view .nnu-main-grid > .jqx-grid-content {
+            /* ===== 主表大视窗 (仅作用于已挂载的 .nnu-main-grid) ===== */
+            .nnu-tall-view .nnu-main-grid {
                 height: 75vh !important;
-                min-height: 650px !important;
+                min-height: 640px !important;
                 max-height: 85vh !important;
             }
 
-            /* ===== 审核弹窗高度自适应 ===== */
+            /* ===== 审核详情弹窗高度自适应 ===== */
             .bh-paper-pile-dialog,
             .bh-paper-pile-dialog-dialog,
-            .bh-paper-pile-dialog-container,
-            [bh-paper-pile-dialog-role-container-guid],
             .bh-card-lv4.bh-dialog-con,
             .bh-window,
             .bh-dialog,
@@ -317,8 +345,8 @@
             .bh-paper-dialog {
                 height: auto !important;
                 min-height: auto !important;
-                border-radius: 6px !important;
-                box-shadow: 0 4px 18px rgba(0,0,0,0.18) !important;
+                border-radius: var(--heroui-radius-card) !important;
+                box-shadow: var(--heroui-shadow-panel) !important;
                 overflow: visible !important;
             }
 
@@ -336,15 +364,15 @@
                 min-height: auto !important;
                 max-height: none !important;
                 overflow-y: visible !important;
-                padding: 10px 16px !important;
+                padding: 12px 16px !important;
             }
 
             .bh-form-group, .bh-form-row, .el-form-item {
                 height: auto !important;
                 min-height: auto !important;
                 margin-bottom: 4px !important;
-                padding-top: 1px !important;
-                padding-bottom: 1px !important;
+                padding-top: 2px !important;
+                padding-bottom: 2px !important;
             }
 
             .bh-paper-pile-dialog [data-action="grid"],
@@ -356,7 +384,7 @@
                 max-height: none !important;
             }
 
-            /* ===== 流转信息完整显示 ===== */
+            /* ===== 流转信息完整展示 ===== */
             :is(.emap-flow-comment, .emap-flow-comment-m, .bh-flow-comment, [data-role="flow-comment"]),
             :is(.emap-flow-comment, .emap-flow-comment-m, .bh-flow-comment, [data-role="flow-comment"]) :is(.emap-flow-comment-item, .content) {
                 height: auto !important;
@@ -367,63 +395,152 @@
                 line-clamp: unset !important;
                 white-space: normal !important;
                 text-overflow: clip !important;
-                font-size: 15px !important;
+                font-size: 14px !important;
                 line-height: 1.6 !important;
             }
 
-            /* ===== 处理意见置顶高亮 & 移动端一键审批栏 ===== */
+            /* ===== HeroUI v3 Compound Card: 置顶审批工作区 ===== */
             .nnu-top-highlight {
-                background: #f0f7ff !important;
-                border: 2px solid #1890ff !important;
-                border-radius: 6px !important;
-                padding: 10px 12px !important;
-                margin-bottom: 10px !important;
+                background: var(--heroui-surface) !important;
+                border: 1px solid var(--heroui-border-strong) !important;
+                border-left: 3px solid var(--heroui-accent) !important;
+                border-radius: var(--heroui-radius-card) !important;
+                padding: 16px !important;
+                margin-bottom: 12px !important;
+                box-shadow: var(--heroui-shadow-sm) !important;
             }
-            .nnu-top-highlight .bh-form-label, .nnu-top-highlight label {
-                color: #0050b3 !important;
-                font-weight: bold !important;
+            .nnu-top-highlight .bh-form-label,
+            .nnu-top-highlight label {
+                color: var(--heroui-fg) !important;
+                font-weight: 500 !important;
             }
             .nnu-quick-approve-bar {
                 display: flex;
                 flex-wrap: wrap;
+                align-items: center;
+                justify-content: space-between;
                 gap: 8px;
-                margin-bottom: 8px;
-                padding-bottom: 8px;
-                border-bottom: 1px dashed #bae0ff;
+                margin-bottom: 12px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid var(--heroui-border);
+                font-family: var(--heroui-font-sans);
             }
-            .nnu-quick-btn {
-                border: none;
-                border-radius: 6px;
-                padding: 8px 14px;
-                min-height: 38px;
-                font-size: 14px;
-                font-weight: 600;
+            .nnu-quick-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            /* ===== HeroUI v3 Semantic Buttons ===== */
+            .nnu-btn, .nnu-quick-btn {
+                font-family: var(--heroui-font-sans);
+                font-size: 13px;
+                font-weight: 500;
+                line-height: 20px;
+                height: 36px;
+                padding: 0 12px;
+                border-radius: var(--heroui-radius-control);
+                border: 1px solid transparent;
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 4px;
+                gap: 8px;
+                user-select: none;
+                white-space: nowrap;
+                box-sizing: border-box;
+                font-variant-numeric: tabular-nums;
             }
-            .nnu-quick-btn-primary { background: #1677ff; color: #fff; }
-            .nnu-quick-btn-primary:hover { background: #0958d9; }
-            .nnu-quick-btn-outline { background: #fff; color: #1677ff; border: 1px solid #91caff; }
+            .nnu-btn--sm {
+                height: 32px;
+                padding: 0 10px;
+                font-size: 12px;
+            }
+            .nnu-btn--primary, .nnu-quick-btn-primary {
+                background: var(--heroui-accent) !important;
+                color: var(--heroui-accent-fg) !important;
+                border-color: var(--heroui-accent) !important;
+            }
+            .nnu-btn--primary:hover, .nnu-quick-btn-primary:hover {
+                background: var(--heroui-accent-hover) !important;
+            }
+            .nnu-btn--secondary, .nnu-btn-secondary, .nnu-quick-btn-outline {
+                background: var(--heroui-surface-2) !important;
+                color: var(--heroui-fg) !important;
+                border-color: var(--heroui-border-strong) !important;
+            }
+            .nnu-btn--secondary:hover, .nnu-btn-secondary:hover, .nnu-quick-btn-outline:hover {
+                background: var(--heroui-surface-3) !important;
+            }
+            .nnu-btn--ghost {
+                background: transparent !important;
+                color: var(--heroui-fg-secondary) !important;
+                border-color: transparent !important;
+            }
+            .nnu-btn--ghost:hover {
+                background: var(--heroui-surface-2) !important;
+                color: var(--heroui-fg) !important;
+            }
+            .nnu-icon {
+                flex-shrink: 0;
+                color: currentColor;
+            }
 
-            /* ===== 附件图片强力兜底预览区 & 高清灯箱 ===== */
+            /* ===== Signature Detail: Tactile Keycaps (.nnu-kbd) ===== */
+            .nnu-kbd-group {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 12px;
+                color: var(--heroui-fg-muted);
+            }
+            .nnu-kbd {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 20px;
+                height: 20px;
+                padding: 0 6px;
+                font-family: var(--heroui-font-mono);
+                font-size: 11px;
+                font-weight: 500;
+                line-height: 1;
+                color: var(--heroui-fg-secondary);
+                background: var(--heroui-surface-2);
+                border: 1px solid var(--heroui-border-strong);
+                border-radius: var(--heroui-radius-kbd);
+                box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+            }
+
+            /* ===== HeroUI v3 Compound Card: 证明附件预览胶片条 ===== */
             .nnu-attachment-bar {
-                background: #fafafa;
-                border: 1px solid #e8e8e8;
-                border-radius: 6px;
-                padding: 8px 12px;
-                margin: 8px 0;
+                background: var(--heroui-surface);
+                border: 1px solid var(--heroui-border-strong);
+                border-radius: var(--heroui-radius-card);
+                padding: 12px 16px;
+                margin: 8px 0 12px 0;
+                font-family: var(--heroui-font-sans);
             }
             .nnu-attachment-header {
                 font-size: 13px;
-                font-weight: 600;
-                color: #333;
-                margin-bottom: 6px;
+                font-weight: 500;
+                color: var(--heroui-fg);
+                margin-bottom: 8px;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
+            }
+            .nnu-attachment-title {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--heroui-fg);
+            }
+            .nnu-attachment-count {
+                font-family: var(--heroui-font-mono);
+                font-size: 12px;
+                color: var(--heroui-fg-muted);
+                font-variant-numeric: tabular-nums;
             }
             .nnu-attachment-list {
                 display: flex;
@@ -434,40 +551,46 @@
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
-                padding: 5px 8px;
-                background: #fff;
-                border: 1px solid #d9d9d9;
-                border-radius: 5px;
+                padding: 4px 8px 4px 4px;
+                background: var(--heroui-surface-2);
+                border: 1px solid var(--heroui-border);
+                border-radius: var(--heroui-radius-control);
                 cursor: pointer;
                 max-width: 240px;
             }
-            .nnu-att-card:hover { border-color: #1677ff; }
+            .nnu-att-card:hover {
+                background: var(--heroui-surface-3);
+                border-color: var(--heroui-border-strong);
+            }
             .nnu-att-thumb {
-                width: 44px;
-                height: 44px;
+                width: 40px;
+                height: 40px;
                 object-fit: cover;
-                border-radius: 4px;
-                background: #f0f0f0;
+                border-radius: 6px;
+                background: var(--heroui-surface-3);
                 flex-shrink: 0;
             }
             .nnu-att-name {
                 font-size: 12px;
-                color: #333;
+                color: var(--heroui-fg-secondary);
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
+
+            /* ===== 附件全屏检查灯箱 ===== */
             #nnu-lightbox {
                 position: fixed;
                 inset: 0;
-                background: rgba(0,0,0,0.88);
+                background: rgba(15, 15, 16, 0.92);
                 z-index: 10000001;
                 display: none;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                padding: 12px;
+                padding: 16px;
                 touch-action: none;
+                font-family: var(--heroui-font-sans);
             }
             #nnu-lightbox.show { display: flex; }
             #nnu-lb-stage {
@@ -479,89 +602,237 @@
                 overflow: hidden;
             }
             #nnu-lb-img {
-                max-width: 94vw;
-                max-height: 78vh;
+                max-width: 92vw;
+                max-height: 76vh;
                 object-fit: contain;
-                border-radius: 4px;
+                border-radius: var(--heroui-radius-control);
                 user-select: none;
                 -webkit-user-drag: none;
+            }
+            #nnu-lb-caption {
+                color: #a1a1a6;
+                font-size: 13px;
+                margin-top: 8px;
+                text-align: center;
+                font-variant-numeric: tabular-nums;
             }
             #nnu-lb-toolbar {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 8px;
                 justify-content: center;
-                padding: 10px 12px;
-                background: rgba(30,30,30,0.9);
-                border-radius: 8px;
-                margin-top: 8px;
+                padding: 8px 12px;
+                background: #19191b;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: var(--heroui-radius-card);
+                margin-top: 12px;
             }
             .nnu-lb-btn {
-                background: #2f2f2f;
-                color: #fff;
-                border: 1px solid #555;
-                border-radius: 5px;
-                padding: 6px 12px;
-                min-height: 36px;
+                background: #232325;
+                color: #ededed;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: var(--heroui-radius-control);
+                height: 36px;
+                padding: 0 12px;
                 font-size: 13px;
+                font-weight: 500;
                 cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
             }
-            .nnu-lb-btn:hover { background: #1677ff; border-color: #1677ff; }
+            .nnu-lb-btn:hover { background: #2e2e32; }
+            .nnu-lb-btn--danger { color: #f87171; }
 
-            /* ===== 胶囊悬浮球 ===== */
+            /* ===== 右下角工作台触发器 & HeroUI v3 浮动面板 ===== */
             #nnu-ball {
                 position: fixed;
-                bottom: 24px; right: 24px;
-                height: 40px; padding: 0 16px;
-                background: #1890ff !important;
-                border-radius: 19px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
-                display: flex; align-items: center; gap: 7px;
-                color: #fff;
-                font-family: -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif;
-                font-size: 15px; font-weight: 600;
-                cursor: pointer; z-index: 9999999;
+                bottom: 24px;
+                right: 24px;
+                height: 36px;
+                padding: 0 12px;
+                background: #171717 !important;
+                color: #ededed !important;
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: var(--heroui-radius-control);
+                box-shadow: var(--heroui-shadow-panel) !important;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-family: var(--heroui-font-sans);
+                font-size: 13px;
+                font-weight: 500;
+                cursor: pointer;
+                z-index: 9999999;
                 user-select: none;
             }
-            #nnu-ball:hover { background: #096dd9 !important; }
+            #nnu-ball:hover { background: #232325 !important; }
+            .nnu-status-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #4cc38a;
+                flex-shrink: 0;
+            }
 
             #nnu-ball-panel {
                 position: fixed;
-                bottom: 72px; right: 24px;
-                width: 300px;
+                bottom: 68px;
+                right: 24px;
+                width: 320px;
                 max-width: calc(100vw - 24px);
                 box-sizing: border-box;
-                background: #fff;
-                border: 1px solid #d9d9d9;
-                border-radius: 6px;
-                box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important;
+                background: var(--heroui-surface);
+                border: 1px solid var(--heroui-border-strong);
+                border-radius: var(--heroui-radius-panel);
+                box-shadow: var(--heroui-shadow-panel) !important;
                 padding: 16px;
-                font-family: -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif;
-                font-size: 15px; line-height: 1.5; color: #333;
+                font-family: var(--heroui-font-sans);
+                font-size: 14px;
+                line-height: 20px;
+                color: var(--heroui-fg);
                 z-index: 9999999;
-                display: none; flex-direction: column; gap: 14px;
+                display: none;
+                flex-direction: column;
+                gap: 12px;
             }
             #nnu-ball-panel.show { display: flex; }
 
-            .nnu-btn { background:#1890ff !important; color:#fff; border:1px solid transparent; border-radius:5px; padding:6px 12px; font:inherit; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
-            .nnu-btn:hover { background:#096dd9 !important; }
-            .nnu-btn-secondary { background:#fff !important; color:#555; border-color:#d9d9d9; }
-            .nnu-btn-secondary:hover { background:#f5f5f5 !important; }
-            #nnu-panel-close { border:0; background:none; padding:4px; color:#777; cursor:pointer; display:flex; }
-            #nnu-select-pagesize { font:inherit; padding:5px 8px; border:1px solid #d9d9d9; border-radius:5px; background:#fff; }
-            #nnu-ball-panel details summary { cursor:pointer; color:#666; font-size:14px; }
-            #nnu-ball-panel details[open] summary { margin-bottom:8px; }
+            .heroui-card__header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding-bottom: 12px;
+                border-bottom: 1px solid var(--heroui-border);
+            }
+            .heroui-card__title {
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--heroui-fg);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .heroui-card__meta {
+                font-family: var(--heroui-font-mono);
+                font-size: 11px;
+                font-weight: 400;
+                color: var(--heroui-fg-muted);
+            }
+            .heroui-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 8px;
+                min-height: 36px;
+            }
+            .heroui-label {
+                font-size: 13px;
+                font-weight: 500;
+                color: var(--heroui-fg-secondary);
+            }
+            .heroui-surface-box {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 8px 12px;
+                background: var(--heroui-surface-2);
+                border: 1px solid var(--heroui-border);
+                border-radius: var(--heroui-radius-control);
+                gap: 8px;
+            }
+            #nnu-selected-count {
+                font-family: var(--heroui-font-mono);
+                font-size: 12px;
+                font-weight: 500;
+                color: var(--heroui-fg);
+                font-variant-numeric: tabular-nums;
+            }
+            #nnu-panel-close {
+                border: 0;
+                background: transparent;
+                width: 28px;
+                height: 28px;
+                border-radius: 6px;
+                color: var(--heroui-fg-muted);
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            #nnu-panel-close:hover {
+                background: var(--heroui-surface-2);
+                color: var(--heroui-fg);
+            }
+            #nnu-select-pagesize {
+                font-family: var(--heroui-font-mono);
+                font-size: 13px;
+                font-variant-numeric: tabular-nums;
+                height: 36px;
+                padding: 0 10px;
+                border: 1px solid var(--heroui-border-strong);
+                border-radius: var(--heroui-radius-control);
+                background: var(--heroui-surface);
+                color: var(--heroui-fg);
+            }
+            #nnu-ball-panel details {
+                border-top: 1px solid var(--heroui-border);
+                padding-top: 12px;
+            }
+            #nnu-ball-panel details summary {
+                cursor: pointer;
+                color: var(--heroui-fg-muted);
+                font-size: 12px;
+                font-weight: 500;
+                user-select: none;
+            }
+            #nnu-ball-panel details[open] summary { margin-bottom: 8px; }
 
-            #nnu-log-container { max-height:85px; overflow-y:auto; background:#f7f9fa; border:1px solid #e8e8e8; border-radius:4px; padding:4px 6px; font-size:13px; font-family:Consolas,monospace; }
-            .nnu-log-item { display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px dashed #e8e8e8; }
+            #nnu-log-container {
+                max-height: 88px;
+                overflow-y: auto;
+                background: var(--heroui-surface-2);
+                border: 1px solid var(--heroui-border);
+                border-radius: var(--heroui-radius-control);
+                padding: 6px 8px;
+                font-size: 12px;
+                font-family: var(--heroui-font-mono);
+                font-variant-numeric: tabular-nums;
+            }
+            .nnu-log-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 2px 0;
+                border-bottom: 1px solid var(--heroui-border);
+            }
+            .nnu-log-item:last-child { border-bottom: none; }
 
-            #nnu-toast { position:fixed; top:24px; left:50%; transform:translateX(-50%); z-index:10000002; background:#1890ff; color:#fff; padding:7px 20px; border-radius:18px; font-size:15px; box-shadow:0 2px 10px rgba(0,0,0,0.2); pointer-events:none; opacity:0; max-width:90vw; text-align:center; }
-            #nnu-toast.show { opacity:1; }
+            #nnu-toast {
+                position: fixed;
+                top: 24px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 10000002;
+                background: #171717;
+                color: #ededed;
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                padding: 8px 16px;
+                border-radius: var(--heroui-radius-control);
+                font-family: var(--heroui-font-sans);
+                font-size: 13px;
+                font-weight: 500;
+                box-shadow: var(--heroui-shadow-panel);
+                pointer-events: none;
+                opacity: 0;
+                max-width: 90vw;
+                text-align: center;
+                font-variant-numeric: tabular-nums;
+            }
+            #nnu-toast.show { opacity: 1; }
 
             /* ===== 移动端响应式适配 ===== */
             @media (max-width: 768px) {
-                .nnu-tall-view .nnu-main-grid,
-                .nnu-tall-view .nnu-main-grid > .jqx-grid-content {
+                .nnu-tall-view .nnu-main-grid {
                     height: 60vh !important;
                     min-height: 380px !important;
                 }
@@ -570,32 +841,39 @@
                 .bh-window-content,
                 .bh-dialog .bh-dialog-center,
                 .el-dialog__body {
-                    padding: 8px 10px !important;
+                    padding: 8px 12px !important;
                 }
                 #nnu-ball {
-                    bottom: 14px;
+                    bottom: 16px;
                     right: 12px;
-                    height: 36px;
-                    padding: 0 12px;
-                    font-size: 13px;
                 }
                 #nnu-ball-panel {
-                    bottom: 58px;
+                    bottom: 60px;
                     right: 12px;
-                    padding: 12px;
+                    padding: 16px;
+                }
+                .nnu-btn, .nnu-quick-btn {
+                    height: 40px;
+                }
+                .nnu-quick-actions {
+                    width: 100%;
                 }
                 .nnu-quick-btn {
                     flex: 1 1 auto;
                 }
+                .nnu-kbd-group {
+                    display: none;
+                }
             }
         `;
         const s = document.createElement('style');
-        s.innerHTML = css;
+        s.id = 'nnu-leavefaster-styles';
+        s.textContent = css;
         (document.head || document.documentElement).appendChild(s);
         if (isTallView) document.documentElement.classList.add('nnu-tall-view');
     }
 
-    // ================= 3. 主表高度应用 (节流无循环) =================
+    // ================= 3. 主表高度安全应用 (严禁修改未初始化或隐藏的 0x0 表格) =================
     let _heightRafTimer = null;
     function apply75vhHeight() {
         if (!isTallView) return;
@@ -604,21 +882,33 @@
             _heightRafTimer = null;
             document.documentElement.classList.add('nnu-tall-view');
             const isMobile = window.innerWidth <= 768;
-            const h = isMobile ? Math.max(window.innerHeight * 0.6, 380) : Math.max(window.innerHeight * 0.75, 650);
-            document.querySelectorAll('[data-action="grid"], .jqx-grid').forEach(grid => {
-                if (grid.closest('.bh-paper-pile-dialog, .bh-card-lv4, .bh-window, .bh-dialog, .bh-pop, .el-dialog')) return;
+            const h = isMobile ? Math.max(Math.round(window.innerHeight * 0.6), 380) : Math.max(Math.round(window.innerHeight * 0.75), 640);
+            document.querySelectorAll('#emapdatatable, [data-action="grid"], .jqx-grid').forEach(grid => {
+                if (grid.closest('.bh-paper-pile-dialog, .bh-card-lv4, .bh-window, .bh-dialog, .bh-pop, .el-dialog, [role="dialog"]')) return;
+                const content = grid.querySelector('.jqx-grid-content');
+                if (!content || grid.clientWidth === 0) return;
                 grid.classList.add('nnu-main-grid');
-                if (grid.clientHeight === h) return;
+                if (Math.abs(grid.clientHeight - h) <= 4) return;
                 grid.style.setProperty('height', `${h}px`, 'important');
                 grid.style.setProperty('min-height', `${h}px`, 'important');
-                const content = grid.querySelector('.jqx-grid-content');
-                if (content) content.style.setProperty('height', `${h - 60}px`, 'important');
+                content.style.setProperty('height', `${h - 64}px`, 'important');
                 try {
                     if (win.jQuery && win.jQuery(grid).data('jqxGrid')) {
                         win.jQuery(grid).jqxGrid({ height: h });
                     }
                 } catch (e) {}
             });
+        });
+    }
+
+    function restoreNativeTableHeight() {
+        document.documentElement.classList.remove('nnu-tall-view');
+        document.querySelectorAll('.nnu-main-grid').forEach(grid => {
+            grid.classList.remove('nnu-main-grid');
+            grid.style.removeProperty('height');
+            grid.style.removeProperty('min-height');
+            const content = grid.querySelector('.jqx-grid-content');
+            if (content) content.style.removeProperty('height');
         });
     }
 
@@ -631,10 +921,9 @@
     function triggerReloadData() {
         lastInteractTime = Date.now();
         const $ = win.jQuery;
-        if (!$) { showToast('表格组件尚未加载，请稍后重试'); return; }
+        if (!$) { showToast('表格组件尚未就绪，请稍后重试'); return; }
         for (const el of getMainTables()) {
             const table = $(el);
-            // EMAP 的底层可能是 jqxGrid 或 jqxDataTable，API 大小写不同。
             const kind = table.data('jqxGrid') ? 'jqxGrid' : table.data('jqxDataTable') ? 'jqxDataTable' : null;
             if (!kind || typeof table[kind] !== 'function') continue;
             try {
@@ -642,11 +931,9 @@
                 const sizeKey = isGrid ? 'pagesize' : 'pageSize';
                 const oldSize = table[kind](sizeKey);
                 const oldPage = isGrid ? table[kind]('getpaginginformation') : null;
-                showToast(`正在请求每页 ${currentCustomPageSize} 行，请等待表格加载`);
-                // 设置组件状态，避免接口返回 50 条但组件仍按 10 条渲染/翻页。
+                showToast(`正在加载每页 ${currentCustomPageSize} 行`);
                 table[kind]({ [sizeKey]: currentCustomPageSize });
                 table[kind](isGrid ? 'gotopage' : 'goToPage', 0);
-                // 行数和页码都没变时，显式刷新；否则交给组件的分页事件加载。
                 if (Number(oldSize) === currentCustomPageSize && (!isGrid || oldPage.pagenum === 0)) {
                     table[kind](isGrid ? 'updatebounddata' : 'updateBoundData');
                 }
@@ -661,7 +948,7 @@
         showToast('未找到可操作的主表组件，请复制诊断日志', 3500);
     }
 
-    // ================= 4.5 突破 10 条批量限制与多选增强 (含 beginupdate/endupdate 批处理加速) =================
+    // ================= 4.5 突破 10 条批量限制与多选增强 (不篡改 emapdatatable 原型，杜绝表格崩溃) =================
     function getActiveGrid() {
         const tables = getMainTables();
         return tables.length ? tables[0] : document.querySelector('#emapdatatable, [data-action="grid"], .jqx-grid');
@@ -701,81 +988,62 @@
         const $ = win.jQuery;
         const hasJqxGrid = Boolean(grid && $ && $(grid).data('jqxGrid'));
         try {
-            if (hasJqxGrid) {
-                try { $(grid).jqxGrid('beginupdate'); } catch (e) {}
-                try { $(grid).jqxGrid(selectAll ? 'selectallrows' : 'clearselection'); } catch (e) {}
-            }
-            if (grid && $) {
-                try {
-                    if (typeof $(grid).emapdatatable === 'function') {
-                        $(grid).emapdatatable(selectAll ? 'checkAll' : 'uncheckAll');
-                    }
-                } catch (e) {}
-            }
-            const checkboxes = document.querySelectorAll('.jqx-grid-content .jqx-checkbox, [data-action="grid"] .jqx-checkbox, #emapdatatable input[type="checkbox"]');
-            for (const cb of checkboxes) {
+            const rowCheckboxes = document.querySelectorAll('.jqx-grid-content .jqx-checkbox, #emapdatatable tbody input[type="checkbox"]');
+            let clickedCount = 0;
+            for (const cb of rowCheckboxes) {
+                if (cb.closest && cb.closest('.jqx-grid-column-header')) continue;
                 if (cb.tagName === 'INPUT') {
                     if (cb.checked !== selectAll) {
                         cb.checked = selectAll;
                         cb.dispatchEvent(new Event('change', { bubbles: true }));
+                        clickedCount++;
                     }
                 } else {
                     const isChecked = cb.getAttribute('aria-checked') === 'true';
-                    if (isChecked !== selectAll) cb.click();
+                    if (isChecked !== selectAll) {
+                        cb.click();
+                        clickedCount++;
+                    }
                 }
             }
-        } finally {
-            if (hasJqxGrid) {
+            if (hasJqxGrid && clickedCount === 0) {
+                try { $(grid).jqxGrid('beginupdate'); } catch (e) {}
+                try { $(grid).jqxGrid(selectAll ? 'selectallrows' : 'clearselection'); } catch (e) {}
                 try { $(grid).jqxGrid('endupdate'); } catch (e) {}
             }
+        } finally {
             _batchSelectionLock = false;
         }
         updateBatchCountUI();
-        showToast(selectAll ? '已全选当前页所有待办' : '已取消全选');
+        showToast(selectAll ? '已全选当前页待办' : '已清空选择');
     }
 
     function updateBatchCountUI() {
         const count = getSelectedRecords().length;
         const countEl = document.getElementById('nnu-selected-count');
-        if (countEl) countEl.textContent = `已选: ${count} 条`;
+        if (countEl) countEl.textContent = `已选 ${count}`;
         const btnAgree = document.getElementById('nnu-btn-batch-agree');
         if (btnAgree) {
-            btnAgree.textContent = count > 0 ? `批量同意 (${count}条)` : '批量同意已选';
-            btnAgree.style.opacity = count > 0 ? '1' : '0.6';
+            btnAgree.textContent = count > 0 ? `批量同意 (${count})` : '批量同意';
+            btnAgree.style.opacity = count > 0 ? '1' : '0.65';
         }
     }
 
-    // O(1) 短路解锁：一旦全部目标包装完成，后续调用直接返回
+    // 关键修复：绝不覆写 $.fn.emapdatatable 或向 jqxGrid 注入非标准 options 属性（会导致 jqxcore 抛出 Invalid property 致使表格消失）
     function unlockGridSelectionLimits() {
-        if (_emapUnlocked && _bhTipUnlocked && _bhUtilTipUnlocked) return;
+        if (_bhTipUnlocked && _bhUtilTipUnlocked) return;
         const $ = win.jQuery;
-        if (!$ || !$.fn) return;
-        if (!_emapUnlocked && $.fn.emapdatatable) {
-            if (!$.fn.emapdatatable._nnuUnlocked) {
-                const origEmapdatatable = $.fn.emapdatatable;
-                $.fn.emapdatatable = function (options, ...args) {
-                    if (options && typeof options === 'object') {
-                        options.maxCheckCount = 999999;
-                        options.maxCheck = 999999;
-                        options.checkLimit = 999999;
-                        options.maxSelected = 999999;
-                    }
-                    return origEmapdatatable.apply(this, [options, ...args]);
-                };
-                $.fn.emapdatatable._nnuUnlocked = true;
-            }
-            _emapUnlocked = true;
-        }
-
-        if (!_bhTipUnlocked && $.bhTip) {
+        if ($ && !_bhTipUnlocked && $.bhTip) {
             if (!$.bhTip._nnuWrapped) {
                 const origBhTip = $.bhTip;
-                $.bhTip = function (options, ...args) {
+                const wrappedTip = function (options) {
                     const content = typeof options === 'string' ? options : (options && options.content || '');
                     if (RE_LIMIT_10.test(content)) return;
-                    return origBhTip.apply(this, [options, ...args]);
+                    return origBhTip.apply(this, arguments);
                 };
-                $.bhTip._nnuWrapped = true;
+                Object.assign(wrappedTip, origBhTip);
+                wrappedTip._nnuWrapped = true;
+                $.bhTip = wrappedTip;
             }
             _bhTipUnlocked = true;
         }
@@ -783,12 +1051,14 @@
         if (!_bhUtilTipUnlocked && win.BH_UTILS && win.BH_UTILS.bhTip) {
             if (!win.BH_UTILS.bhTip._nnuWrapped) {
                 const origBhUtilTip = win.BH_UTILS.bhTip;
-                win.BH_UTILS.bhTip = function (options, ...args) {
+                const wrappedUtilTip = function (options) {
                     const content = typeof options === 'string' ? options : (options && options.content || '');
                     if (RE_LIMIT_10.test(content)) return;
-                    return origBhUtilTip.apply(this, [options, ...args]);
+                    return origBhUtilTip.apply(this, arguments);
                 };
-                win.BH_UTILS.bhTip._nnuWrapped = true;
+                Object.assign(wrappedUtilTip, origBhUtilTip);
+                wrappedUtilTip._nnuWrapped = true;
+                win.BH_UTILS.bhTip = wrappedUtilTip;
             }
             _bhUtilTipUnlocked = true;
         }
@@ -798,7 +1068,7 @@
         lastInteractTime = Date.now();
         const records = getSelectedRecords();
         if (!records.length) {
-            showToast('请先勾选需要批量同意的请假待办');
+            showToast('请先勾选需要批量同意的待办记录');
             return;
         }
 
@@ -809,7 +1079,7 @@
         });
 
         if (nativeBatchBtn) {
-            showToast(`正在批量提交 ${records.length} 条待办...`);
+            showToast(`正在批量处理 ${records.length} 条待办`);
             nativeBatchBtn.click();
             setTimeout(() => {
                 const modal = document.querySelector('.bh-dialog-con, .bh-paper-pile-dialog, .bh-window, .bh-dialog');
@@ -824,10 +1094,10 @@
             return;
         }
 
-        showToast(`已选 ${records.length} 条，请直接点击表格上方的【批量同意】按钮提交`);
+        showToast(`已选 ${records.length} 条，请点击页面上方的批量审核按钮提交`);
     }
 
-    // ================= 5. 审核表单置顶、移动端一键审批与附件图片强力预览 =================
+    // ================= 5. 审核表单置顶、移动端快捷审批与证明附件预览 =================
     function fillAgreeOpinion(scopeDoc = document) {
         let filled = false;
         scopeDoc.querySelectorAll('input[type="radio"]').forEach(r => {
@@ -864,26 +1134,32 @@
         const containers = document.querySelectorAll('.bh-paper-pile-dialog, .bh-card-lv4 .bh-dialog-center, .bh-window .bh-window-content, .bh-dialog .bh-dialog-center, .bh-dialog-content');
         containers.forEach(form => {
             if (form.dataset.nnuLifted) return;
-            const groups = form.querySelectorAll('.bh-form-group, .bh-form-row, .el-form-item, [data-name*="SHYJ"], [data-name*="SHJG"], [data-name*="opinion"]');
+            if (form.querySelector('#emapdatatable, #commonAdvanceQuery')) return;
+
+            const groups = Array.from(form.querySelectorAll('.bh-form-group, .bh-form-row, .el-form-item, [data-name*="SHYJ"], [data-name*="opinion"]'));
             let target = null;
             for (const g of groups) {
-                const txt = g.textContent || '';
-                if (txt.includes('审核意见') || txt.includes('处理意见') || txt.includes('审核结果') || g.querySelector('textarea')) {
-                    target = g;
-                    break;
-                }
+                if (!g.querySelector('textarea')) continue;
+                if (g.querySelector('[data-action="grid"], .jqx-grid')) continue;
+                target = g;
             }
-            if (target) {
+            if (target && target.parentElement) {
                 form.dataset.nnuLifted = 'true';
                 target.classList.add('nnu-top-highlight');
-                form.insertBefore(target, form.firstChild);
+                target.parentElement.insertBefore(target, target.parentElement.firstChild);
 
                 if (!target.querySelector('.nnu-quick-approve-bar')) {
                     const bar = document.createElement('div');
                     bar.className = 'nnu-quick-approve-bar';
                     bar.innerHTML = `
-                        <button type="button" class="nnu-quick-btn nnu-quick-btn-primary" data-nnu-act="agree-submit">⚡ 一键同意并提交</button>
-                        <button type="button" class="nnu-quick-btn nnu-quick-btn-outline" data-nnu-act="agree-only">✍️ 仅填同意</button>
+                        <div class="nnu-quick-actions">
+                            <button type="button" class="nnu-quick-btn nnu-quick-btn-primary" data-nnu-act="agree-submit">${ICON_CHECK}<span>同意并提交</span></button>
+                            <button type="button" class="nnu-quick-btn nnu-quick-btn-outline" data-nnu-act="agree-only">${ICON_EDIT}<span>填入同意</span></button>
+                        </div>
+                        <div class="nnu-kbd-group">
+                            <kbd class="nnu-kbd">Alt</kbd><kbd class="nnu-kbd">A</kbd><span>同意</span>
+                            <kbd class="nnu-kbd">Alt</kbd><kbd class="nnu-kbd">Enter</kbd><span>提交</span>
+                        </div>
                     `;
                     bar.addEventListener('click', e => {
                         const btn = e.target.closest('button[data-nnu-act]');
@@ -892,13 +1168,13 @@
                         e.stopPropagation();
                         const filled = fillAgreeOpinion(document);
                         if (btn.dataset.nnuAct === 'agree-submit') {
-                            showToast(filled ? '已填同意，正在提交...' : '正在尝试提交...');
+                            showToast(filled ? '已填入同意，正在提交' : '正在提交');
                             setTimeout(() => {
-                                if (submitReviewForm(document)) showToast('已一键同意并提交！');
-                                else showToast('已填同意，请手动确认提交');
+                                if (submitReviewForm(document)) showToast('已同意并提交');
+                                else showToast('已填入同意，请确认提交');
                             }, 80);
                         } else {
-                            showToast(filled ? `已勾选【同意】并填入："${autoOpinionText}"` : '未检测到意见输入框');
+                            showToast(filled ? `已勾选同意并填入：${autoOpinionText}` : '未检测到意见输入框');
                         }
                     });
                     target.insertBefore(bar, target.firstChild);
@@ -907,7 +1183,6 @@
         });
     }
 
-    // 使用带凭证的 fetch 读取图片流转 Blob URL，绕过手机 WebView 裂图与下载拦截
     function loadProtectedImage(imgEl, url) {
         imgEl.src = url;
         imgEl.onerror = () => {
@@ -926,12 +1201,11 @@
                     }
                 })
                 .catch(() => {
-                    imgEl.alt = '加载失败，请点此查看原图';
+                    imgEl.alt = '点击查看原图';
                 });
         };
     }
 
-    // 轻量高清全屏灯箱（支持缩放、旋转、多图切换与手机触控）
     function openImageLightbox(items, startIndex = 0) {
         if (!items || !items.length) return;
         let idx = Math.max(0, Math.min(startIndex, items.length - 1));
@@ -944,17 +1218,17 @@
             lb.id = 'nnu-lightbox';
             lb.innerHTML = `
                 <div id="nnu-lb-stage"><img id="nnu-lb-img" alt="附件预览"></div>
-                <div id="nnu-lb-caption" style="color:#ddd;font-size:13px;margin-top:6px;text-align:center"></div>
+                <div id="nnu-lb-caption"></div>
                 <div id="nnu-lb-toolbar">
-                    <button type="button" class="nnu-lb-btn" data-lb="prev">◀ 上一张</button>
-                    <button type="button" class="nnu-lb-btn" data-lb="zoom-in">放大 +</button>
-                    <button type="button" class="nnu-lb-btn" data-lb="zoom-out">缩小 -</button>
-                    <button type="button" class="nnu-lb-btn" data-lb="rotate-left">↺ 左旋</button>
-                    <button type="button" class="nnu-lb-btn" data-lb="rotate-right">↻ 右旋</button>
-                    <button type="button" class="nnu-lb-btn" data-lb="reset">1:1</button>
-                    <button type="button" class="nnu-lb-btn" data-lb="open-raw">原图</button>
-                    <button type="button" class="nnu-lb-btn" data-lb="next">下一张 ▶</button>
-                    <button type="button" class="nnu-lb-btn" data-lb="close" style="background:#cf1322;border-color:#cf1322">✕ 关闭</button>
+                    <button type="button" class="nnu-lb-btn" data-lb="prev">${ICON_CHEVRON_LEFT}<span>上一张</span></button>
+                    <button type="button" class="nnu-lb-btn" data-lb="zoom-in">${ICON_ZOOM_IN}<span>放大</span></button>
+                    <button type="button" class="nnu-lb-btn" data-lb="zoom-out">${ICON_ZOOM_OUT}<span>缩小</span></button>
+                    <button type="button" class="nnu-lb-btn" data-lb="rotate-left">${ICON_ROTATE_CCW}<span>左旋</span></button>
+                    <button type="button" class="nnu-lb-btn" data-lb="rotate-right">${ICON_ROTATE_CW}<span>右旋</span></button>
+                    <button type="button" class="nnu-lb-btn" data-lb="reset"><span>1:1</span></button>
+                    <button type="button" class="nnu-lb-btn" data-lb="open-raw">${ICON_EXTERNAL}<span>原图</span></button>
+                    <button type="button" class="nnu-lb-btn" data-lb="next"><span>下一张</span>${ICON_CHEVRON_RIGHT}</button>
+                    <button type="button" class="nnu-lb-btn nnu-lb-btn--danger" data-lb="close">${ICON_CLOSE}<span>关闭</span></button>
                 </div>
             `;
             document.body.appendChild(lb);
@@ -1000,9 +1274,11 @@
     }
 
     function enhanceAttachmentPreviews() {
-        const dialogs = document.querySelectorAll('.bh-paper-pile-dialog, .bh-card-lv4.bh-dialog-con, .bh-window, .bh-dialog, [role="dialog"]');
+        const dialogs = document.querySelectorAll('.bh-paper-pile-dialog, .bh-card-lv4.bh-dialog-con, .bh-window, .bh-dialog');
         dialogs.forEach(dialog => {
             if (!dialog.offsetParent) return;
+            if (dialog.querySelector('#emapdatatable, #commonAdvanceQuery')) return;
+
             const items = [];
             const seen = new Set();
             const addItem = (name, url) => {
@@ -1011,10 +1287,8 @@
                 items.push({ name: name || `附件 ${items.length + 1}`, url });
             };
 
-            // 1. 收集接口嗅探到的附件
             for (const att of latestAttachments) addItem(att.name, att.url);
 
-            // 2. 扫描弹窗 DOM 中的图片与附件下载链接
             dialog.querySelectorAll('a[href]').forEach(a => {
                 const href = a.href || a.getAttribute('href');
                 if (href && (RE_IMAGE_EXT.test(href) || RE_DOWNLOAD_LINK.test(href))) {
@@ -1048,8 +1322,8 @@
             bar.dataset.sig = signature;
             bar.innerHTML = `
                 <div class="nnu-attachment-header">
-                    <span>🖼️ 附件图片强力预览 (${items.length}张，防裂图/可旋转缩放)</span>
-                    <button type="button" class="nnu-btn" style="padding:3px 10px;font-size:12px" data-nnu-open-all="1">全屏预览</button>
+                    <span class="nnu-attachment-title">${ICON_IMAGE}<span>证明附件</span><span class="nnu-attachment-count">${items.length}</span></span>
+                    <button type="button" class="nnu-btn nnu-btn--secondary nnu-btn--sm" data-nnu-open-all="1">全屏查看</button>
                 </div>
                 <div class="nnu-attachment-list"></div>
             `;
@@ -1077,10 +1351,13 @@
                 openImageLightbox(items, 0);
             });
 
-            const host = dialog.querySelector('.bh-paper-pile-dialog-body, .bh-dialog-center, .bh-window-content, .el-dialog__body') || dialog;
-            const highlight = host.querySelector('.nnu-top-highlight');
-            if (highlight && highlight.nextSibling) host.insertBefore(bar, highlight.nextSibling);
-            else host.insertBefore(bar, host.firstChild);
+            const highlight = dialog.querySelector('.nnu-top-highlight');
+            if (highlight && highlight.parentElement) {
+                highlight.parentElement.insertBefore(bar, highlight.nextSibling);
+            } else {
+                const host = dialog.querySelector('.bh-paper-pile-dialog-body, .bh-dialog-center, .bh-window-content, .el-dialog__body') || dialog;
+                host.insertBefore(bar, host.firstChild);
+            }
         });
     }
 
@@ -1089,6 +1366,7 @@
         _domObserverRaf = requestAnimationFrame(() => {
             _domObserverRaf = null;
             unlockGridSelectionLimits();
+            apply75vhHeight();
             liftReviewFormToTop();
             enhanceAttachmentPreviews();
         });
@@ -1111,14 +1389,14 @@
         setTimeout(() => t.classList.remove('show'), dur);
     }
 
-    // ================= 6. 悬浮球 & 面板 =================
+    // ================= 6. HeroUI v3 工作台触发器与面板 =================
     function updateLogPanelUI() {
         const c = document.getElementById('nnu-log-container');
         if (!c) return;
-        if (!requestLogs.length) { c.innerHTML = '<span style="color:#aaa">接口监控中...</span>'; return; }
+        if (!requestLogs.length) { c.innerHTML = '<span style="color:var(--heroui-fg-muted)">等待接口请求</span>'; return; }
         c.innerHTML = requestLogs.map(item => {
-            const color = item.isSuccess ? (item.duration > 2500 ? '#fa8c16' : '#52c41a') : '#f5222d';
-            return `<div class="nnu-log-item" style="color:${color}"><span>${item.time} ${item.action}</span><span>${item.duration}ms</span></div>`;
+            const color = item.isSuccess ? (item.duration > 2500 ? 'var(--heroui-warning)' : 'var(--heroui-success)') : 'var(--heroui-danger)';
+            return `<div class="nnu-log-item" style="color:${color}"><span>${item.time} ${item.action}</span><span>${item.duration} ms</span></div>`;
         }).join('');
     }
 
@@ -1133,11 +1411,11 @@
                 else if (table.data('jqxDataTable')) tInfo += `    jqxDataTable每页:${table.jqxDataTable('pageSize')}\n`;
             } catch (e) { tInfo += `    组件诊断:${String(e)}\n`; }
         });
-        const txt = `====== NNU Leave Diagnostic Log (v1.1.0) ======\n`
+        const txt = `====== NNU Leave Diagnostic Log (v1.1.1) ======\n`
             + `URL: ${location.href}\n行数:${currentCustomPageSize} | 75vh视窗:${isTallView} | 嗅探附件:${latestAttachments.length}\n`
             + `Window:${window.innerWidth}x${window.innerHeight}\n${tInfo}\n`
             + `Requests:\n${JSON.stringify(requestLogs, null, 2)}\n===========================`;
-        navigator.clipboard.writeText(txt).then(() => showToast('诊断日志已复制！', 2500)).catch(() => console.log(txt));
+        navigator.clipboard.writeText(txt).then(() => showToast('已复制诊断日志', 2500)).catch(() => console.log(txt));
     }
 
     function renderFloatingBall() {
@@ -1145,43 +1423,54 @@
 
         const ball = document.createElement('div');
         ball.id = 'nnu-ball';
-        ball.innerHTML = `<span style="display:inline-flex;align-items:center">${ICON_APP}</span><span>NNU LeaveFaster</span>`;
+        ball.innerHTML = `<span class="nnu-status-dot"></span>${ICON_CHECK_DOC}<span>NNU LeaveFaster</span>`;
         document.body.appendChild(ball);
 
         const panel = document.createElement('div');
         panel.id = 'nnu-ball-panel';
         panel.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;font-weight:600">
-                <span>NNU LeaveFaster v1.1</span>
+            <div class="heroui-card__header">
+                <div class="heroui-card__title">
+                    ${ICON_CHECK_DOC}
+                    <span>NNU LeaveFaster</span>
+                    <span class="heroui-card__meta">v1.1.1</span>
+                </div>
                 <button id="nnu-panel-close" type="button" aria-label="关闭面板">${ICON_CLOSE}</button>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-                <label for="nnu-select-pagesize">每页行数</label>
-                <select id="nnu-select-pagesize">
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-                <button id="nnu-btn-apply" class="nnu-btn">刷新</button>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#f6f9fc;border-radius:5px;border:1px solid #e5e9f2;font-size:13px">
-                <span id="nnu-selected-count" style="font-weight:600;color:#1890ff">已选: 0 条</span>
-                <div style="display:flex;gap:5px">
-                    <button id="nnu-btn-select-all" class="nnu-btn nnu-btn-secondary" style="padding:3px 6px;font-size:12px">全选</button>
-                    <button id="nnu-btn-unselect-all" class="nnu-btn nnu-btn-secondary" style="padding:3px 6px;font-size:12px">清空</button>
-                    <button id="nnu-btn-batch-agree" class="nnu-btn" style="padding:3px 8px;font-size:12px">批量同意</button>
+            <div class="heroui-row">
+                <label class="heroui-label" for="nnu-select-pagesize">每页行数</label>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <select id="nnu-select-pagesize">
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <button id="nnu-btn-apply" type="button" class="nnu-btn nnu-btn--primary">${ICON_REFRESH}<span>刷新</span></button>
                 </div>
             </div>
-            <label style="cursor:pointer;display:flex;align-items:center;gap:8px">
+            <div class="heroui-surface-box">
+                <span id="nnu-selected-count">已选 0</span>
+                <div style="display:flex;gap:4px">
+                    <button id="nnu-btn-select-all" type="button" class="nnu-btn nnu-btn--secondary nnu-btn--sm">全选</button>
+                    <button id="nnu-btn-unselect-all" type="button" class="nnu-btn nnu-btn--ghost nnu-btn--sm">清空</button>
+                    <button id="nnu-btn-batch-agree" type="button" class="nnu-btn nnu-btn--primary nnu-btn--sm">批量同意</button>
+                </div>
+            </div>
+            <label class="heroui-row" style="cursor:pointer">
+                <span class="heroui-label">扩展主表视窗高度</span>
                 <input type="checkbox" id="nnu-check-tallview" ${isTallView ? 'checked' : ''}>
-                <span>加高主表</span>
             </label>
             <details>
                 <summary>诊断与快捷键</summary>
-                <div id="nnu-log-container"><span style="color:#888">等待请求</span></div>
-                <button id="nnu-btn-diag" class="nnu-btn nnu-btn-secondary" style="margin-top:10px">复制诊断日志</button>
-                <div style="font-size:13px;color:#777;margin-top:10px">Alt+A 同意 · Alt+Enter 提交</div>
+                <div id="nnu-log-container"><span style="color:var(--heroui-fg-muted)">等待接口请求</span></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+                    <button id="nnu-btn-diag" type="button" class="nnu-btn nnu-btn--secondary nnu-btn--sm">${ICON_COPY}<span>复制诊断信息</span></button>
+                    <div class="nnu-kbd-group">
+                        <kbd class="nnu-kbd">Alt</kbd><kbd class="nnu-kbd">A</kbd>
+                        <kbd class="nnu-kbd">Alt</kbd><kbd class="nnu-kbd">Enter</kbd>
+                    </div>
+                </div>
             </details>
         `;
         document.body.appendChild(panel);
@@ -1240,7 +1529,7 @@
             lastInteractTime = Date.now();
             currentCustomPageSize = parseInt(e.target.value, 10);
             localStorage.setItem(STORAGE_KEY_PAGESIZE, currentCustomPageSize);
-            showToast(`已选 ${currentCustomPageSize} 行，点击【刷新】生效`);
+            showToast(`已设每页 ${currentCustomPageSize} 行，点击刷新生效`);
         });
 
         document.getElementById('nnu-btn-apply').addEventListener('click', e => {
@@ -1254,8 +1543,13 @@
             lastInteractTime = Date.now();
             isTallView = e.target.checked;
             localStorage.setItem(STORAGE_KEY_TALL_VIEW, isTallView);
-            if (isTallView) { apply75vhHeight(); showToast('已开启 75vh 大视窗'); }
-            else { document.documentElement.classList.remove('nnu-tall-view'); showToast('已恢复原生高度'); }
+            if (isTallView) {
+                apply75vhHeight();
+                showToast('已启用扩展主表视窗');
+            } else {
+                restoreNativeTableHeight();
+                showToast('已恢复默认主表高度');
+            }
         });
 
         document.getElementById('nnu-btn-diag').addEventListener('click', e => {
@@ -1273,11 +1567,11 @@
         if (e.altKey && (e.key === 'a' || e.key === 'A')) {
             e.preventDefault();
             const filled = fillAgreeOpinion(document);
-            showToast(filled ? `已勾选【同意】并填入意见："${autoOpinionText}"` : '请先点开审核弹窗');
+            showToast(filled ? `已勾选同意并填入：${autoOpinionText}` : '请先打开审核详情');
         }
         if (e.altKey && e.key === 'Enter') {
             e.preventDefault();
-            if (submitReviewForm(document)) showToast('已提交审核！');
+            if (submitReviewForm(document)) showToast('已提交审核');
         }
     }
 

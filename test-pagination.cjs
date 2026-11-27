@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(`${__dirname}/nnu_leave_enhancer.user.js`, 'utf8');
+// Unslop check: ensure zero emojis in injected UI/copy
+assert.equal(/[\u{1F300}-\u{1FAFF}]/u.test(source), false, 'Script must not contain emoji characters');
+
 // Flow diagram pages must exit before touching window, DOM, storage or network APIs.
 vm.runInNewContext(source, { location: { href: 'https://example.test/flowDiagram.html' } });
 const requests = [];
@@ -12,6 +15,7 @@ class XHR {
     send(body) { requests.push({ url: this.url, body }); }
     addEventListener() {}
 }
+const origEmapdatatable = Object.assign(function emapdatatable() {}, { defaults: { pageSize: 10 } });
 const window = { XMLHttpRequest: XHR, FormData, URLSearchParams };
 window.self = window.top = window;
 const context = vm.createContext({
@@ -22,14 +26,16 @@ const context = vm.createContext({
 vm.runInContext(source.replace('    init();', `
     globalThis.test = {
         rewritePageParams, triggerReloadData, summarizePageResponse, getMainTables,
-        extractAttachmentsFromPayload, fillAgreeOpinion, submitReviewForm, toggleSelectAll
+        extractAttachmentsFromPayload, fillAgreeOpinion, submitReviewForm, toggleSelectAll,
+        unlockGridSelectionLimits
     };
     currentCustomPageSize = 50;
     showToast = message => { globalThis.lastToast = message; };
 `), context);
 const {
     rewritePageParams, triggerReloadData, summarizePageResponse,
-    extractAttachmentsFromPayload, fillAgreeOpinion, submitReviewForm, toggleSelectAll
+    extractAttachmentsFromPayload, fillAgreeOpinion, submitReviewForm, toggleSelectAll,
+    unlockGridSelectionLimits
 } = context.test;
 
 for (const key of ['pageSize', 'pagesize', '*pageSize', '%2ApageSize', 'rows', 'limit']) {
@@ -58,6 +64,20 @@ assert.deepEqual(requests, [
     { url: '/review.do?pageSize=10', body: '*pageSize=10' },
 ]);
 assert.equal(JSON.stringify(summarizePageResponse({ data: { rows: [{ name: 'private' }], totalSize: 100 } })), '{"data":{"rows":{"count":1},"totalSize":100}}');
+
+// Regression check: unlockGridSelectionLimits must NOT wrap $.fn.emapdatatable or break its defaults
+const tipCalls = [];
+const mockJq = {
+    fn: { emapdatatable: origEmapdatatable },
+    bhTip: Object.assign(msg => tipCalls.push(msg), { version: '1.0' }),
+};
+window.jQuery = Object.assign(() => ({}), mockJq);
+unlockGridSelectionLimits();
+assert.equal(window.jQuery.fn.emapdatatable, origEmapdatatable, 'emapdatatable must remain untouched');
+assert.equal(window.jQuery.bhTip.version, '1.0', 'bhTip static properties must be preserved');
+window.jQuery.bhTip('批量处理不能超过10条');
+window.jQuery.bhTip('操作成功');
+assert.deepEqual(tipCalls, ['操作成功']);
 
 // Realistic widget contract: changing page size/page loads data; repeating it does not.
 for (const kind of ['jqxGrid', 'jqxDataTable']) {
@@ -98,7 +118,7 @@ const sampleAttachmentPayload = {
     datas: {
         rows: [
             { fileName: '病假条.jpg', fileUrl: '/qljfw/file/101.jpg' },
-            { fileName: '病假条.jpg', fileUrl: '/qljfw/file/101.jpg' }, // duplicate
+            { fileName: '病假条.jpg', fileUrl: '/qljfw/file/101.jpg' },
             { fileName: '医院证明.png', fileToken: 'tok-999' },
             { fileName: 'xss.jpg', url: 'javascript:alert(1)' },
             { fileName: 'notes.txt', url: '/qljfw/file/notes.txt' },
@@ -124,7 +144,7 @@ const mockDoc = {
         }
         if (sel.includes('button')) {
             return [
-                { textContent: '⚡ 一键同意并提交', offsetParent: {}, closest: () => ({}), click() { throw Error('must skip quick bar button'); } },
+                { textContent: '同意并提交', offsetParent: {}, closest: () => ({}), click() { throw Error('must skip quick bar button'); } },
                 { textContent: '确定', offsetParent: {}, disabled: false, closest: () => null, click() { btnClicked = true; } },
             ];
         }
@@ -138,7 +158,7 @@ assert.deepEqual(eventsDispatched, ['input', 'change']);
 assert.equal(submitReviewForm(mockDoc), true);
 assert.equal(btnClicked, true);
 
-// Batch selectAll uses beginupdate/endupdate to prevent N-row reflows
+// Batch selectAll uses beginupdate/endupdate fallback safely when DOM checkboxes are absent
 const calls = [];
 const mainEl = { getClientRects: () => [1], closest: () => null };
 context.document.querySelectorAll = sel => (!sel.includes('checkbox') && sel.includes('emapdatatable') ? [mainEl] : []);
@@ -155,4 +175,4 @@ for (let i = 0; i < 10000; i++) rewritePageParams('status=pending&pageNumber=2&u
 const fastPathMs = performance.now() - t0;
 assert.ok(fastPathMs < 500, `Fast-path too slow: ${fastPathMs}ms`);
 
-console.log(`All regression & fast-path checks passed (10k fast-path calls: ${fastPathMs.toFixed(2)}ms).`);
+console.log(`All regression, unslop & fast-path checks passed (10k fast-path calls: ${fastPathMs.toFixed(2)}ms).`);
